@@ -3,273 +3,90 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>FIELD-OS // SPACEX & TESLA TELEMETRY HUD</title>
+  <title>FIELD-OS // TESLA EXTREME TELEMETRY</title>
   
-  <!-- Tailwind CSS CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Google Fonts: Chakra Petch & JetBrains Mono -->
+  <!-- Web Fonts: Inter for Clean Automotive Geometric Typography -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=JetBrains+Mono:wght@300;400;600;800&display=swap" rel="stylesheet">
-
-  <!-- Tailwind Custom Theme Configuration -->
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            tele: {
-              black: '#040507',
-              dark: '#0a0d14',
-              panel: 'rgba(7, 10, 16, 0.88)',
-              border: 'rgba(255, 255, 255, 0.12)',
-              cyan: '#00f0ff',
-              orange: '#ff5500',
-              red: '#ff1a3c',
-              green: '#00ff88',
-              amber: '#ffb700',
-              purple: '#b347ff',
-              dim: '#6b7280'
-            }
-          },
-          fontFamily: {
-            mono: ['JetBrains Mono', 'monospace'],
-            hud: ['Chakra Petch', 'JetBrains Mono', 'sans-serif']
-          }
-        }
-      }
-    };
-  </script>
-
-  <!-- Custom Stylesheet -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  
   <link rel="stylesheet" href="style.css">
 </head>
-<body class="w-screen h-screen flex flex-col relative hud-overlay-scanline">
+<body>
 
-  <!-- ================= TOP: SPACEX MISSION STATUS BANNER ================= -->
-  <header class="h-14 border-b border-white/15 bg-tele-black px-6 flex items-center justify-between shrink-0 z-30 font-hud tracking-widest text-xs">
-    <div class="flex items-center gap-6">
-      <div class="flex items-center gap-2">
-        <span class="w-2.5 h-2.5 rounded-full bg-tele-red animate-ping"></span>
-        <span class="text-white font-bold text-sm tracking-widest">SPACEX // FIELD-OS</span>
-      </div>
-      <div class="h-4 w-px bg-white/20"></div>
-      <div class="flex items-center gap-2 text-slate-400">
-        <span>TRAJECTORY:</span>
-        <span id="flight-mode-text" class="text-tele-cyan font-bold">STAGE 1 // ORBITAL EQUILIBRIUM</span>
-      </div>
+  <!-- Fullscreen Space-time Metric Graph Viewport -->
+  <canvas id="field-canvas"></canvas>
+
+  <!-- ================= TOP: ULTRA-MINIMAL ACT SELECTOR & TICKER ================= -->
+  <header class="top-hud">
+    <div class="act-selector">
+      <button class="act-btn active" onclick="orchestrator.setAct(1)">[ 01 ]</button>
+      <button class="act-btn" onclick="orchestrator.setAct(2)">[ 02 ]</button>
+      <button class="act-btn" onclick="orchestrator.setAct(3)">[ 03 ]</button>
+      <button class="act-btn" onclick="orchestrator.setAct(4)">[ 04 ]</button>
     </div>
-
-    <!-- Center Mission Clock (T+ Counter) -->
-    <div class="flex items-baseline gap-2 bg-tele-dark px-4 py-1.5 rounded border border-white/10">
-      <span class="text-slate-400 text-[10px] tracking-widest">MISSION CLOCK</span>
-      <span id="mission-clock" class="text-lg font-bold font-mono text-white tracking-widest">T+ 00:00:00.0</span>
-    </div>
-
-    <!-- Right Live Telemetry Status -->
-    <div class="flex items-center gap-5 text-[11px]">
-      <div>NET: <span class="text-tele-green font-semibold">SYNCHRONIZED</span></div>
-      <div>FPS: <span id="fps-val" class="text-white font-semibold font-mono">60</span></div>
-      <div class="px-2 py-0.5 rounded bg-white/10 border border-white/20 text-white font-bold text-[10px] tracking-wider">LIVE TELEMETRY</div>
+    <div class="telemetry-ticker" id="telemetry-ticker">
+      <span class="ticker-dot"></span>
+      <span id="ticker-text">FIELD-OS NOMINAL // ACT 01 ACTIVE</span>
     </div>
   </header>
 
-  <!-- ================= MAIN TELEMETRY WORKSPACE ================= -->
-  <div class="flex-1 flex overflow-hidden relative">
-
-    <!-- ================= LEFT: TESLA COCKPIT & ACT CONTROLLER ================= -->
-    <aside class="w-80 lg:w-96 m-3 tele-box bracket-corner rounded flex flex-col z-20 shrink-0 p-4 gap-4 overflow-y-auto">
-      
-      <!-- Act Scenario Switches -->
-      <div>
-        <div class="flex justify-between items-center text-[10px] text-slate-400 font-bold tracking-widest uppercase mb-2 border-b border-white/10 pb-1.5 font-hud">
-          <span>Flight Dynamics Mode</span>
-          <span class="text-tele-cyan">SECTOR 01-04</span>
-        </div>
-
-        <div class="space-y-2">
-          <!-- Act 1 -->
-          <button id="act-btn-1" onclick="telemetrySys.setAct(1)" class="w-full text-left p-2.5 rounded bg-white/10 border-l-4 border-tele-cyan border-white/20 text-white transition-all duration-150 flex flex-col gap-0.5">
-            <div class="flex justify-between items-center font-bold text-xs font-hud tracking-wide">
-              <span>01 // GENESIS EQUILIBRIUM</span>
-              <span class="text-[9px] px-1 py-0.2 rounded bg-tele-cyan/20 text-tele-cyan border border-tele-cyan/30">NOMINAL</span>
-            </div>
-            <span class="text-[10px] text-slate-400">초기 평온 상태 · SeedNode 기저 얽힘장 형성</span>
-          </button>
-
-          <!-- Act 2 -->
-          <button id="act-btn-2" onclick="telemetrySys.setAct(2)" class="w-full text-left p-2.5 rounded bg-tele-dark/60 hover:bg-white/5 border-l-4 border-transparent border-white/10 text-slate-300 transition-all duration-150 flex flex-col gap-0.5">
-            <div class="flex justify-between items-center font-bold text-xs font-hud tracking-wide">
-              <span>02 // ENTROPY INJECTION</span>
-              <span class="text-[9px] px-1 py-0.2 rounded bg-tele-red/20 text-tele-red border border-tele-red/30">ABORT RISK</span>
-            </div>
-            <span class="text-[10px] text-slate-400">결과보고서 급증 ➔ CriticalNode 비대칭 전단 응력 왜곡</span>
-          </button>
-
-          <!-- Act 3 -->
-          <button id="act-btn-3" onclick="telemetrySys.setAct(3)" class="w-full text-left p-2.5 rounded bg-tele-dark/60 hover:bg-white/5 border-l-4 border-transparent border-white/10 text-slate-300 transition-all duration-150 flex flex-col gap-0.5">
-            <div class="flex justify-between items-center font-bold text-xs font-hud tracking-wide">
-              <span>03 // VECTOR GEODESIC HEAL</span>
-              <span class="text-[9px] px-1 py-0.2 rounded bg-tele-amber/20 text-tele-amber border border-tele-amber/30">CORRECTING</span>
-            </div>
-            <span class="text-[10px] text-slate-400">척력 필드 전개 · 중력 렌즈 효과 우회 곡선 자동 굴절</span>
-          </button>
-
-          <!-- Act 4 -->
-          <button id="act-btn-4" onclick="telemetrySys.setAct(4)" class="w-full text-left p-2.5 rounded bg-tele-dark/60 hover:bg-white/5 border-l-4 border-transparent border-white/10 text-slate-300 transition-all duration-150 flex flex-col gap-0.5">
-            <div class="flex justify-between items-center font-bold text-xs font-hud tracking-wide">
-              <span>04 // SINGULARITY INJECTION</span>
-              <span class="text-[9px] px-1 py-0.2 rounded bg-tele-green/20 text-tele-green border border-tele-green/30">CAPTURED</span>
-            </div>
-            <span class="text-[10px] text-slate-400">MatureCircleNode 중심 초중력 우물 수렴 궤도 완성</span>
-          </button>
-        </div>
+  <!-- ================= BOTTOM-LEFT CLUSTER ================= -->
+  <div class="telemetry-cluster cluster-left">
+    
+    <!-- Gauge 1: Field Tension (Tesla Downforce Style) -->
+    <div class="arc-gauge" id="gauge-tension">
+      <svg class="arc-svg" viewBox="0 0 140 140">
+        <!-- Left Parenthesis Arc -->
+        <path class="arc-path arc-left" d="M 45,18 A 58,58 0 0,0 45,122" />
+        <!-- Right Parenthesis Arc -->
+        <path class="arc-path arc-right" d="M 95,18 A 58,58 0 0,1 95,122" />
+      </svg>
+      <div class="gauge-content">
+        <span class="gauge-label">TENSION</span>
+        <span class="gauge-value" id="val-tension">3009</span>
+        <span class="gauge-unit">KG</span>
       </div>
+    </div>
 
-      <!-- Tesla Roadster Style G-Force Meter -->
-      <div class="border-t border-white/10 pt-3 flex flex-col gap-2">
-        <div class="flex justify-between text-[10px] text-slate-400 font-bold uppercase tracking-widest font-hud">
-          <span>G-Force Dynamics / Acceleration Vector</span>
-          <span class="text-white font-mono" id="g-force-val">1.02 G</span>
-        </div>
-        <div class="flex items-center justify-center p-2 bg-tele-black/70 rounded border border-white/10 relative">
-          <canvas id="g-meter-canvas" width="140" height="140"></canvas>
-          <div class="absolute bottom-2 right-2 text-[9px] font-mono text-slate-500">XY-STRESS</div>
-        </div>
-      </div>
-
-      <!-- Stage Spectrum Aerospace Legend -->
-      <div class="border-t border-white/10 pt-3">
-        <div class="text-[10px] text-slate-400 font-bold uppercase tracking-widest font-hud mb-2">Aerospace Stage Spectrum</div>
-        <div class="space-y-1.5 text-[11px]">
-          <div class="flex items-center justify-between p-1 bg-white/[0.02] border border-white/5 rounded">
-            <div class="flex items-center gap-2">
-              <span class="w-2 h-2 rounded-full bg-tele-cyan shadow-[0_0_8px_#00f0ff]"></span>
-              <span class="text-slate-200 font-bold">SeedNode</span>
-            </div>
-            <span class="text-[10px] text-slate-500 font-mono">Stage 1 · Point Spark</span>
-          </div>
-          <div class="flex items-center justify-between p-1 bg-white/[0.02] border border-white/5 rounded">
-            <div class="flex items-center gap-2">
-              <span class="text-tele-red font-bold text-xs">▲</span>
-              <span class="text-slate-200 font-bold">CriticalNode</span>
-            </div>
-            <span class="text-[10px] text-slate-500 font-mono">Stage 2 · Concave Arrow</span>
-          </div>
-          <div class="flex items-center justify-between p-1 bg-white/[0.02] border border-white/5 rounded">
-            <div class="flex items-center gap-2">
-              <span class="text-tele-amber font-bold text-xs">△</span>
-              <span class="text-slate-200 font-bold">SplitNode</span>
-            </div>
-            <span class="text-[10px] text-slate-500 font-mono">Stage 3 · Tri-Phase Trigger</span>
-          </div>
-          <div class="flex items-center justify-between p-1 bg-white/[0.02] border border-white/5 rounded">
-            <div class="flex items-center gap-2">
-              <span class="text-tele-purple font-bold text-xs">◈</span>
-              <span class="text-slate-200 font-bold">PolyhedronNode</span>
-            </div>
-            <span class="text-[10px] text-slate-500 font-mono">Stage 4 · 3D Projection</span>
-          </div>
-          <div class="flex items-center justify-between p-1 bg-white/[0.02] border border-white/5 rounded">
-            <div class="flex items-center gap-2">
-              <span class="w-2.5 h-2.5 rounded-full border border-tele-green flex items-center justify-center"><span class="w-1 h-1 rounded-full bg-tele-green"></span></span>
-              <span class="text-slate-200 font-bold">MatureCircle</span>
-            </div>
-            <span class="text-[10px] text-slate-500 font-mono">Stage 5 · Gravity Core</span>
-          </div>
-        </div>
-      </div>
-
-    </aside>
-
-    <!-- ================= CENTER & RIGHT: SPACEX RADAR CANVAS & TAPE GAUGES ================= -->
-    <main class="flex-1 flex flex-col m-3 ml-0 gap-3 overflow-hidden relative">
-
-      <!-- RADAR CANVAS VIEWPORT -->
-      <div class="flex-1 tele-box bracket-corner rounded relative overflow-hidden flex">
-        
-        <canvas id="telemetry-canvas" class="w-full h-full block"></canvas>
-
-        <!-- Center Crosshair Reticle -->
-        <div class="absolute inset-0 pointer-events-none flex items-center justify-center">
-          <div class="w-24 h-24 border border-white/10 rounded-full flex items-center justify-center">
-            <div class="w-1.5 h-1.5 bg-white/40 rounded-full"></div>
-          </div>
-          <div class="absolute w-48 h-px bg-white/10"></div>
-          <div class="absolute h-48 w-px bg-white/10"></div>
-        </div>
-
-        <!-- ================= SPACEX WEBCAST TAPE GAUGES (RIGHT OVERLAY) ================= -->
-        <div class="absolute top-4 right-5 flex gap-4 pointer-events-none font-hud">
-          
-          <!-- FIELD TENSION GAUGE -->
-          <div class="flex flex-col items-end bg-tele-black/85 p-3 rounded border border-white/15 backdrop-blur-md min-w-[130px]">
-            <span class="text-[9px] text-slate-400 font-bold tracking-widest">FIELD TENSION</span>
-            <div class="flex items-baseline gap-1 my-0.5">
-              <span id="tape-tension-num" class="text-2xl font-bold font-mono text-white tracking-tight">1,420</span>
-              <span class="text-[10px] text-tele-cyan font-mono">N/m</span>
-            </div>
-            <div class="w-full bg-white/10 h-1.5 rounded-full overflow-hidden mt-1">
-              <div id="tape-tension-bar" class="bg-tele-cyan h-full w-[24%] transition-all duration-300"></div>
-            </div>
-            <span class="text-[8.5px] text-slate-500 font-mono mt-1">PEAK: 4,820 N/m</span>
-          </div>
-
-          <!-- ENTROPIC STRAIN GAUGE -->
-          <div class="flex flex-col items-end bg-tele-black/85 p-3 rounded border border-white/15 backdrop-blur-md min-w-[130px]">
-            <span class="text-[9px] text-slate-400 font-bold tracking-widest">ENTROPIC STRAIN</span>
-            <div class="flex items-baseline gap-1 my-0.5">
-              <span id="tape-entropy-num" class="text-2xl font-bold font-mono text-tele-red tracking-tight">0.05</span>
-              <span class="text-[10px] text-slate-400 font-mono">S</span>
-            </div>
-            <div class="w-full bg-white/10 h-1.5 rounded-full overflow-hidden mt-1">
-              <div id="tape-entropy-bar" class="bg-tele-red h-full w-[5%] transition-all duration-300"></div>
-            </div>
-            <span class="text-[8.5px] text-slate-500 font-mono mt-1">LIMIT: 1.00 MAX-Q</span>
-          </div>
-
-          <!-- GEODESIC CURVATURE GAUGE -->
-          <div class="flex flex-col items-end bg-tele-black/85 p-3 rounded border border-white/15 backdrop-blur-md min-w-[120px]">
-            <span class="text-[9px] text-slate-400 font-bold tracking-widest">GEODESIC κ</span>
-            <div class="flex items-baseline gap-1 my-0.5">
-              <span id="tape-curvature-num" class="text-2xl font-bold font-mono text-tele-green tracking-tight">0.08</span>
-              <span class="text-[10px] text-slate-400 font-mono">rad</span>
-            </div>
-            <div class="w-full bg-white/10 h-1.5 rounded-full overflow-hidden mt-1">
-              <div id="tape-curvature-bar" class="bg-tele-green h-full w-[8%] transition-all duration-300"></div>
-            </div>
-            <span class="text-[8.5px] text-slate-500 font-mono mt-1">GRAV-REFRACTION</span>
-          </div>
-
-        </div>
-
-        <!-- Attitude Watermark -->
-        <div class="absolute bottom-3 left-4 text-[10px] text-slate-500 pointer-events-none font-mono">
-          <div>ATTITUDE: PITCH +14.2° | YAW -0.4° | ROLL 0.0°</div>
-          <div>METRIC RESOLUTION: 40 × 26 SPACETIME TENSORS</div>
-        </div>
-
-      </div>
-
-      <!-- ================= BOTTOM: SPACEX DOWNLINK PACKET CONSOLE ================= -->
-      <footer class="h-44 tele-box bracket-corner rounded p-3 flex flex-col shrink-0">
-        <div class="flex items-center justify-between pb-1.5 mb-1.5 border-b border-white/10 text-xs font-hud">
-          <div class="flex items-center gap-2">
-            <span class="w-1.5 h-1.5 bg-tele-cyan rounded-full animate-pulse"></span>
-            <span class="font-bold text-white tracking-widest uppercase">SPACEX DOWNSLINK // TELEMETRY PACKET LOG</span>
-          </div>
-          <span class="text-[10px] text-slate-500 font-mono">RF SIGNAL STRENGTH: 99.4% (QPSK-CARRIER)</span>
-        </div>
-        <div id="terminal-stream" class="flex-1 overflow-y-auto font-mono text-[10.5px] space-y-1 text-slate-300 leading-relaxed">
-          <!-- Realtime packets streamed here -->
-        </div>
-      </footer>
-
-    </main>
+    <!-- Gauge 2: 3D Attitude Gyroscope Sphere -->
+    <div class="gyro-cluster">
+      <canvas id="gyro-canvas" width="140" height="140"></canvas>
+    </div>
 
   </div>
 
-  <!-- Main JavaScript File -->
+  <!-- ================= BOTTOM-RIGHT CLUSTER ================= -->
+  <div class="telemetry-cluster cluster-right">
+
+    <!-- Gauge 3: Entropy / Pitch (Tesla Pitch 89.4 Deg Style) -->
+    <div class="arc-gauge" id="gauge-pitch">
+      <svg class="arc-svg" viewBox="0 0 140 140">
+        <path class="arc-path arc-left" d="M 45,18 A 58,58 0 0,0 45,122" />
+        <path class="arc-path arc-right" d="M 95,18 A 58,58 0 0,1 95,122" />
+      </svg>
+      <div class="gauge-content">
+        <span class="gauge-label">PITCH</span>
+        <span class="gauge-value" id="val-pitch">89.4</span>
+        <span class="gauge-unit">DEG</span>
+      </div>
+    </div>
+
+    <!-- Gauge 4: Geodesic Curvature / Altitude (Tesla Altitude 30.2 Ft Style) -->
+    <div class="arc-gauge" id="gauge-curvature">
+      <svg class="arc-svg" viewBox="0 0 140 140">
+        <path class="arc-path arc-left" d="M 45,18 A 58,58 0 0,0 45,122" />
+        <path class="arc-path arc-right" d="M 95,18 A 58,58 0 0,1 95,122" />
+      </svg>
+      <div class="gauge-content">
+        <span class="gauge-label">ALTITUDE</span>
+        <span class="gauge-value" id="val-curvature">30.2</span>
+        <span class="gauge-unit">FT</span>
+      </div>
+    </div>
+
+  </div>
+
   <script src="script.js"></script>
 </body>
 </html>

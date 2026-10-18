@@ -1,37 +1,156 @@
 /**
- * FIELD-OS :: SPACEX & TESLA HUD TELEMETRY ENGINE
+ * FIELD-OS :: TESLA EXTREME DEMONSTRATION ENGINE
+ * Fullscreen Metric Warp Graph & 3D Attitude Sphere
  */
 
-class SpaceXFieldSimulator {
-  constructor() {
-    this.canvas = document.getElementById('telemetry-canvas');
+// ================= 1. 3D ATTITUDE GYROSCOPE SPHERE SIMULATOR =================
+class AttitudeSphere {
+  constructor(canvasId) {
+    this.canvas = document.getElementById(canvasId);
     this.ctx = this.canvas.getContext('2d');
+    this.width = this.canvas.width;
+    this.height = this.canvas.height;
 
-    // G-Meter mini canvas
-    this.gCanvas = document.getElementById('g-meter-canvas');
-    this.gCtx = this.gCanvas.getContext('2d');
+    // Pitch: vertical inclination (0°: level, 90°: vertical wall climb)
+    this.pitch = 0;       // Current Pitch (Degrees)
+    this.targetPitch = 0; // Target Pitch
+    this.roll = 0;        // Current Roll
+    this.targetRoll = 0;
+    this.yaw = 0;         // Spin rotation
+  }
+
+  setOrientation(pitchDeg, rollDeg) {
+    this.targetPitch = pitchDeg;
+    this.targetRoll = rollDeg;
+  }
+
+  update() {
+    this.pitch += (this.targetPitch - this.pitch) * 0.08;
+    this.roll += (this.targetRoll - this.roll) * 0.08;
+    this.yaw += 0.015; // Slow ambient orbit
+  }
+
+  render(isCrisis) {
+    const ctx = this.ctx;
+    const w = this.width;
+    const h = this.height;
+    const cx = w / 2;
+    const cy = h / 2;
+    const radius = 54;
+
+    ctx.clearRect(0, 0, w, h);
+
+    const strokeColor = isCrisis ? 'rgba(255, 26, 60, 0.7)' : 'rgba(255, 255, 255, 0.45)';
+    const faintColor  = isCrisis ? 'rgba(255, 26, 60, 0.18)' : 'rgba(255, 255, 255, 0.12)';
+    const solidColor  = isCrisis ? '#ff1a3c' : '#ffffff';
+
+    // 1. Outer Horizon Circle
+    ctx.strokeStyle = strokeColor;
+    ctx.lineWidth = 1.0;
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Convert angles to radians
+    const pitchRad = (this.pitch * Math.PI) / 180;
+    const rollRad  = (this.roll * Math.PI) / 180;
+
+    // 2. Equatorial Ring (Perspective Ellipse tilting with Pitch)
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(rollRad);
+
+    const eqHeight = radius * Math.cos(pitchRad);
+    ctx.strokeStyle = faintColor;
+    ctx.lineWidth = 1.0;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, radius, Math.max(1, Math.abs(eqHeight)), 0, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Equatorial Horizon Tick Marks
+    ctx.strokeStyle = strokeColor;
+    ctx.beginPath();
+    ctx.moveTo(-radius, 0); ctx.lineTo(-radius + 6, 0);
+    ctx.moveTo(radius - 6, 0); ctx.lineTo(radius, 0);
+    ctx.stroke();
+
+    // 3. Vertical Longitude Meridian Ring
+    ctx.beginPath();
+    ctx.ellipse(0, 0, radius * Math.abs(Math.sin(this.yaw)), radius, 0, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // 4. Central 3D Vehicle / Field Orientation Silhouette (The Climbing Roadster Model)
+    // Projects top-down shape tilting vertically up to 90 degrees
+    ctx.save();
+    // Invert scale height based on cosine of pitch (looks flat when climbing vertical)
+    const perspectiveScaleY = Math.cos(pitchRad);
+    const perspectiveShiftY = -Math.sin(pitchRad) * 14;
+
+    ctx.translate(0, perspectiveShiftY);
+    ctx.scale(1, Math.abs(perspectiveScaleY) * 0.85 + 0.15);
+
+    // Car/Chassis Body Shell (Tesla Streamlined Wedge)
+    ctx.strokeStyle = solidColor;
+    ctx.fillStyle = isCrisis ? 'rgba(255, 26, 60, 0.3)' : 'rgba(255, 255, 255, 0.18)';
+    ctx.lineWidth = 1.8;
+
+    ctx.beginPath();
+    // Aerodynamic nose
+    ctx.moveTo(0, -22);
+    ctx.bezierCurveTo(8, -20, 11, -10, 11, 4);
+    // Rear haunch & spoiler
+    ctx.lineTo(12, 18);
+    ctx.lineTo(-12, 18);
+    ctx.lineTo(-11, 4);
+    ctx.bezierCurveTo(-11, -10, -8, -20, 0, -22);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // Canopy / Cockpit Glass
+    ctx.fillStyle = isCrisis ? '#ff1a3c' : '#ffffff';
+    ctx.beginPath();
+    ctx.moveTo(0, -12);
+    ctx.bezierCurveTo(4, -10, 6, -3, 6, 6);
+    ctx.lineTo(-6, 6);
+    ctx.bezierCurveTo(-6, -3, -4, -10, 0, -12);
+    ctx.closePath();
+    ctx.fill();
+
+    // Wheel Arcs Indicator
+    ctx.strokeStyle = solidColor;
+    ctx.lineWidth = 2.5;
+    [-13, 11].forEach(x => {
+      ctx.beginPath();
+      ctx.moveTo(x, -14); ctx.lineTo(x, -6);
+      ctx.moveTo(x, 8);   ctx.lineTo(x, 16);
+      ctx.stroke();
+    });
+
+    ctx.restore(); // restore car
+    ctx.restore(); // restore translated gyro
+  }
+}
+
+// ================= 2. FULLSCREEN FIELD GRAPH ENGINE =================
+class FieldGraphEngine {
+  constructor(canvasId) {
+    this.canvas = document.getElementById(canvasId);
+    this.ctx = this.canvas.getContext('2d');
+    this.width = window.innerWidth;
+    this.height = window.innerHeight;
 
     this.currentAct = 1;
     this.globalTick = 0;
-    this.startTime = performance.now();
-    this.lastFpsUpdate = performance.now();
-    this.frameCount = 0;
 
-    // Metric Tensor Coordinate Mesh
-    this.cols = 40;
-    this.rows = 26;
+    // Spacetime Metric Mesh
+    this.cols = 36;
+    this.rows = 24;
     this.mesh = [];
 
-    // Topology entities
+    // Graph Entities
     this.nodes = [];
     this.edges = [];
-
-    // Telemetry metrics
-    this.tension = 1420;
-    this.entropy = 0.05;
-    this.curvature = 0.08;
-    this.gForceX = 0;
-    this.gForceY = 0;
 
     this.resize();
     this.initMesh();
@@ -44,9 +163,8 @@ class SpaceXFieldSimulator {
   }
 
   resize() {
-    const rect = this.canvas.getBoundingClientRect();
-    this.width = rect.width;
-    this.height = rect.height;
+    this.width = window.innerWidth;
+    this.height = window.innerHeight;
     this.canvas.width = this.width * window.devicePixelRatio;
     this.canvas.height = this.height * window.devicePixelRatio;
     this.ctx.resetTransform();
@@ -59,7 +177,7 @@ class SpaceXFieldSimulator {
       for (let c = 0; c <= this.cols; c++) {
         const baseX = (this.width / this.cols) * c;
         const baseY = (this.height / this.rows) * r;
-        this.mesh.push({ baseX, baseY, x: baseX, y: baseY, vx: 0, vy: 0 });
+        this.mesh.push({ baseX, baseY, x: baseX, y: baseY });
       }
     }
   }
@@ -73,10 +191,10 @@ class SpaceXFieldSimulator {
     const cx = this.width / 2;
     const cy = this.height / 2;
 
-    const count = 10;
+    const count = 12;
     for (let i = 0; i < count; i++) {
       const a = (i / count) * Math.PI * 2;
-      const dist = 140 + Math.sin(i * 2) * 50;
+      const dist = 160 + Math.sin(i * 2) * 45;
       this.nodes.push({
         id: `seed_${i}`,
         type: 'seed',
@@ -86,8 +204,7 @@ class SpaceXFieldSimulator {
         targetY: cy + Math.sin(a) * dist,
         vx: 0, vy: 0,
         mass: 1.0,
-        radius: 4,
-        label: `SD-${i + 1}`
+        radius: 3.5
       });
     }
 
@@ -108,28 +225,27 @@ class SpaceXFieldSimulator {
     const cx = this.width / 2;
     const cy = this.height / 2;
 
+    // Critical Nodes (Asymmetric Sharp Stress Shards)
     this.nodes.push({
       id: 'crit_1',
       type: 'critical',
-      x: cx - 160, y: cy - 50,
-      targetX: cx - 160, targetY: cy - 50,
+      x: cx - 180, y: cy - 60,
+      targetX: cx - 180, targetY: cy - 60,
       vx: 0, vy: 0,
       mass: 8.5,
       radius: 20,
-      angle: -Math.PI / 4,
-      label: 'CRIT-ABORT-01'
+      angle: -Math.PI / 4
     });
 
     this.nodes.push({
       id: 'crit_2',
       type: 'critical',
-      x: cx + 170, y: cy + 60,
-      targetX: cx + 170, targetY: cy + 60,
+      x: cx + 190, y: cy + 70,
+      targetX: cx + 190, targetY: cy + 70,
       vx: 0, vy: 0,
       mass: 8.0,
       radius: 20,
-      angle: (3 * Math.PI) / 4,
-      label: 'CRIT-ABORT-02'
+      angle: (3 * Math.PI) / 4
     });
 
     for (let i = 0; i < 3; i++) {
@@ -144,14 +260,13 @@ class SpaceXFieldSimulator {
         vx: 0, vy: 0,
         mass: 4.2,
         radius: 14,
-        rotation: 0,
-        label: `STAGE-SEP-${i + 1}`
+        rotation: 0
       });
     }
 
     for (let i = 0; i < 14; i++) {
       const a = (i / 14) * Math.PI * 2;
-      const dist = 260 + Math.sin(i * 3) * 60;
+      const dist = 280 + Math.sin(i * 3) * 70;
       this.nodes.push({
         id: `chaos_${i}`,
         type: 'seed',
@@ -162,14 +277,13 @@ class SpaceXFieldSimulator {
         vx: (Math.random() - 0.5) * 4,
         vy: (Math.random() - 0.5) * 4,
         mass: 1.5,
-        radius: 3.5,
-        label: `RPT-${i + 10}`
+        radius: 3.5
       });
     }
 
     this.edges.push({ from: 'crit_1', to: 'crit_2', stress: 1.0, isCritical: true });
-    this.edges.push({ from: 'crit_1', to: 'split_0', stress: 0.85, isCritical: true });
-    this.edges.push({ from: 'crit_2', to: 'split_1', stress: 0.85, isCritical: true });
+    this.edges.push({ from: 'crit_1', to: 'split_0', stress: 0.9, isCritical: true });
+    this.edges.push({ from: 'crit_2', to: 'split_1', stress: 0.9, isCritical: true });
     this.edges.push({ from: 'split_0', to: 'split_2', stress: 0.6, isCritical: false });
     this.edges.push({ from: 'split_1', to: 'split_2', stress: 0.6, isCritical: false });
 
@@ -177,7 +291,7 @@ class SpaceXFieldSimulator {
       this.edges.push({
         from: `chaos_${i}`,
         to: i % 2 === 0 ? 'crit_1' : 'crit_2',
-        stress: 0.7,
+        stress: 0.75,
         isCritical: true
       });
     }
@@ -193,77 +307,72 @@ class SpaceXFieldSimulator {
     this.nodes.push({
       id: 'poly_left',
       type: 'polyhedron',
-      x: cx - 170, y: cy,
-      targetX: cx - 170, targetY: cy,
+      x: cx - 180, y: cy,
+      targetX: cx - 180, targetY: cy,
       vx: 0, vy: 0,
       mass: 6.0,
       radius: 22,
-      rotation: 0,
-      label: 'POLY-CORE-ALPHA'
+      rotation: 0
     });
 
     this.nodes.push({
       id: 'poly_right',
       type: 'polyhedron',
-      x: cx + 170, y: cy,
-      targetX: cx + 170, targetY: cy,
+      x: cx + 180, y: cy,
+      targetX: cx + 180, targetY: cy,
       vx: 0, vy: 0,
       mass: 6.0,
       radius: 22,
-      rotation: Math.PI / 4,
-      label: 'POLY-CORE-BETA'
+      rotation: Math.PI / 4
     });
 
     this.nodes.push({
-      id: 'split_n',
+      id: 'split_top',
       type: 'split',
       x: cx, y: cy - 140,
       targetX: cx, targetY: cy - 140,
       vx: 0, vy: 0,
       mass: 3.5,
       radius: 14,
-      rotation: 0,
-      label: 'GIMBAL-N'
+      rotation: 0
     });
 
     this.nodes.push({
-      id: 'split_s',
+      id: 'split_bot',
       type: 'split',
       x: cx, y: cy + 140,
       targetX: cx, targetY: cy + 140,
       vx: 0, vy: 0,
       mass: 3.5,
       radius: 14,
-      rotation: Math.PI,
-      label: 'GIMBAL-S'
+      rotation: Math.PI
     });
 
-    for (let i = 0; i < 12; i++) {
-      const a = (i / 12) * Math.PI * 2;
+    for (let i = 0; i < 14; i++) {
+      const a = (i / 14) * Math.PI * 2;
       this.nodes.push({
-        id: `sat_${i}`,
+        id: `orb_${i}`,
         type: 'seed',
-        x: cx + Math.cos(a) * 270,
-        y: cy + Math.sin(a) * 220,
-        targetX: cx + Math.cos(a) * 270,
-        targetY: cy + Math.sin(a) * 220,
+        x: cx + Math.cos(a) * 290,
+        y: cy + Math.sin(a) * 230,
+        targetX: cx + Math.cos(a) * 290,
+        targetY: cy + Math.sin(a) * 230,
         vx: 0, vy: 0,
         mass: 1.8,
-        radius: 4,
-        label: `TRAJ-${i + 1}`
+        radius: 3.5
       });
     }
 
-    this.edges.push({ from: 'poly_left', to: 'split_n', stress: 0.2, geodesicWarp: 1.8 });
-    this.edges.push({ from: 'split_n', to: 'poly_right', stress: 0.2, geodesicWarp: 1.8 });
-    this.edges.push({ from: 'poly_right', to: 'split_s', stress: 0.2, geodesicWarp: 1.8 });
-    this.edges.push({ from: 'split_s', to: 'poly_left', stress: 0.2, geodesicWarp: 1.8 });
-    this.edges.push({ from: 'poly_left', to: 'poly_right', stress: 0.3, geodesicWarp: 2.4 });
+    this.edges.push({ from: 'poly_left', to: 'split_top', stress: 0.2, geodesicWarp: 1.8 });
+    this.edges.push({ from: 'split_top', to: 'poly_right', stress: 0.2, geodesicWarp: 1.8 });
+    this.edges.push({ from: 'poly_right', to: 'split_bot', stress: 0.2, geodesicWarp: 1.8 });
+    this.edges.push({ from: 'split_bot', to: 'poly_left', stress: 0.2, geodesicWarp: 1.8 });
+    this.edges.push({ from: 'poly_left', to: 'poly_right', stress: 0.3, geodesicWarp: 2.2 });
 
-    for (let i = 0; i < 12; i++) {
+    for (let i = 0; i < 14; i++) {
       this.edges.push({
-        from: `sat_${i}`,
-        to: i < 6 ? 'poly_left' : 'poly_right',
+        from: `orb_${i}`,
+        to: i < 7 ? 'poly_left' : 'poly_right',
         stress: 0.15,
         geodesicWarp: 1.2
       });
@@ -278,21 +387,20 @@ class SpaceXFieldSimulator {
     const cy = this.height / 2;
 
     this.nodes.push({
-      id: 'mature_master',
+      id: 'master_core',
       type: 'mature_circle',
       x: cx, y: cy,
       targetX: cx, targetY: cy,
       vx: 0, vy: 0,
-      mass: 18.0,
-      radius: 38,
-      ripples: [0, 0.33, 0.66],
-      label: 'ORBITAL-WELL-01'
+      mass: 19.0,
+      radius: 40,
+      ripples: [0, 0.33, 0.66]
     });
 
     for (let i = 0; i < 3; i++) {
       const a = (i / 3) * Math.PI * 2;
       this.nodes.push({
-        id: `orb_poly_${i}`,
+        id: `sat_poly_${i}`,
         type: 'polyhedron',
         x: cx + Math.cos(a) * 170,
         y: cy + Math.sin(a) * 170,
@@ -304,50 +412,38 @@ class SpaceXFieldSimulator {
         vx: 0, vy: 0,
         mass: 5.0,
         radius: 18,
-        rotation: 0,
-        label: `SAT-POLY-${i + 1}`
+        rotation: 0
       });
-      this.edges.push({ from: 'mature_master', to: `orb_poly_${i}`, stress: 0.05, geodesicWarp: 0.9 });
+      this.edges.push({ from: 'master_core', to: `sat_poly_${i}`, stress: 0.05, geodesicWarp: 0.9 });
     }
 
     for (let i = 0; i < 16; i++) {
       const a = (i / 16) * Math.PI * 2;
       this.nodes.push({
-        id: `orb_seed_${i}`,
+        id: `star_${i}`,
         type: 'seed',
-        x: cx + Math.cos(a) * 280,
-        y: cy + Math.sin(a) * 280,
-        targetX: cx + Math.cos(a) * 280,
-        targetY: cy + Math.sin(a) * 280,
+        x: cx + Math.cos(a) * 300,
+        y: cy + Math.sin(a) * 300,
+        targetX: cx + Math.cos(a) * 300,
+        targetY: cy + Math.sin(a) * 300,
         orbitAngle: a,
-        orbitRadius: 280,
+        orbitRadius: 300,
         orbitSpeed: 0.0035 * (i % 2 === 0 ? 1 : -1),
         vx: 0, vy: 0,
         mass: 1.5,
-        radius: 3.5,
-        label: `STARLINK-${100 + i}`
+        radius: 3.5
       });
-      this.edges.push({ from: `orb_seed_${i}`, to: `orb_poly_${i % 3}`, stress: 0.02, geodesicWarp: 0.7 });
+      this.edges.push({ from: `star_${i}`, to: `sat_poly_${i % 3}`, stress: 0.02, geodesicWarp: 0.7 });
     }
   }
 
-  // ================= UPDATE PHYSICS & TELEMETRY =================
+  // ================= UPDATE PHYSICS & WARP =================
 
   update() {
     this.globalTick++;
     const cx = this.width / 2;
     const cy = this.height / 2;
 
-    // Mission Clock T+ Calculation
-    const elapsedMs = performance.now() - this.startTime;
-    const totalSec = Math.floor(elapsedMs / 1000);
-    const hours = String(Math.floor(totalSec / 3600)).padStart(2, '0');
-    const mins = String(Math.floor((totalSec % 3600) / 60)).padStart(2, '0');
-    const secs = String(totalSec % 60).padStart(2, '0');
-    const ms = String(Math.floor((elapsedMs % 1000) / 100));
-    document.getElementById('mission-clock').innerText = `T+ ${hours}:${mins}:${secs}.${ms}`;
-
-    // Node Dynamics
     this.nodes.forEach(node => {
       if (node.orbitAngle !== undefined) {
         node.orbitAngle += node.orbitSpeed;
@@ -376,14 +472,13 @@ class SpaceXFieldSimulator {
       if (node.rotation !== undefined) node.rotation += 0.02;
     });
 
-    // Space-Time Metric Grid Warp
-    const warp = this.currentAct === 2 ? 2600 : (this.currentAct === 4 ? 3400 : 1300);
+    const warp = this.currentAct === 2 ? 2600 : (this.currentAct === 4 ? 3400 : 1200);
     for (let pt of this.mesh) {
       let tx = 0, ty = 0;
       for (let node of this.nodes) {
         const dx = node.x - pt.baseX;
         const dy = node.y - pt.baseY;
-        const d2 = dx * dx + dy * dy + 800;
+        const d2 = dx * dx + dy * dy + 850;
         const d = Math.sqrt(d2);
         const pull = (node.mass * warp) / d2;
         tx += (dx / d) * pull;
@@ -391,7 +486,7 @@ class SpaceXFieldSimulator {
 
         if (node.type === 'critical') {
           const theta = Math.atan2(dy, dx);
-          const shear = Math.sin(this.globalTick * 0.2) * 15;
+          const shear = Math.sin(this.globalTick * 0.25) * 16;
           tx += Math.cos(theta + Math.PI / 2) * (pull * 0.85) + shear * (pull / 25);
           ty += Math.sin(theta + Math.PI / 2) * (pull * 0.85);
         }
@@ -399,100 +494,6 @@ class SpaceXFieldSimulator {
       pt.x += (pt.baseX + tx - pt.x) * 0.16;
       pt.y += (pt.baseY + ty - pt.y) * 0.16;
     }
-
-    // Telemetry Tape Calculations
-    if (this.currentAct === 1) {
-      this.tension = 1420 + Math.sin(this.globalTick * 0.05) * 80;
-      this.entropy = 0.05 + Math.cos(this.globalTick * 0.04) * 0.01;
-      this.curvature = 0.08;
-      this.gForceX = Math.sin(this.globalTick * 0.03) * 0.1;
-      this.gForceY = 1.0 + Math.cos(this.globalTick * 0.03) * 0.05;
-    } else if (this.currentAct === 2) {
-      this.tension = 4450 + Math.sin(this.globalTick * 0.25) * 350;
-      this.entropy = 0.94 + Math.cos(this.globalTick * 0.2) * 0.05;
-      this.curvature = 0.74 + Math.sin(this.globalTick * 0.15) * 0.08;
-      this.gForceX = (Math.random() - 0.5) * 1.8;
-      this.gForceY = 2.4 + (Math.random() - 0.5) * 1.2;
-    } else if (this.currentAct === 3) {
-      this.tension = 2650 + Math.sin(this.globalTick * 0.08) * 120;
-      this.entropy = 0.28 + Math.cos(this.globalTick * 0.06) * 0.02;
-      this.curvature = 0.58;
-      this.gForceX = Math.sin(this.globalTick * 0.05) * 0.4;
-      this.gForceY = 1.6 + Math.cos(this.globalTick * 0.05) * 0.2;
-    } else if (this.currentAct === 4) {
-      this.tension = 1820;
-      this.entropy = 0.02;
-      this.curvature = 0.98;
-      this.gForceX = 0;
-      this.gForceY = 1.0;
-    }
-
-    this.updateHUD();
-    this.renderGMeter();
-  }
-
-  updateHUD() {
-    document.getElementById('tape-tension-num').innerText = Math.round(this.tension).toLocaleString();
-    document.getElementById('tape-tension-bar').style.width = `${Math.min(100, (this.tension / 5000) * 100)}%`;
-
-    document.getElementById('tape-entropy-num').innerText = this.entropy.toFixed(2);
-    document.getElementById('tape-entropy-bar').style.width = `${Math.min(100, this.entropy * 100)}%`;
-
-    document.getElementById('tape-curvature-num').innerText = this.curvature.toFixed(2);
-    document.getElementById('tape-curvature-bar').style.width = `${Math.min(100, this.curvature * 100)}%`;
-
-    const totalG = Math.hypot(this.gForceX, this.gForceY);
-    document.getElementById('g-force-val').innerText = `${totalG.toFixed(2)} G`;
-
-    this.frameCount++;
-    const now = performance.now();
-    if (now - this.lastFpsUpdate >= 500) {
-      const fps = Math.round((this.frameCount * 1000) / (now - this.lastFpsUpdate));
-      document.getElementById('fps-val').innerText = fps;
-      this.frameCount = 0;
-      this.lastFpsUpdate = now;
-    }
-  }
-
-  renderGMeter() {
-    const ctx = this.gCtx;
-    const w = this.gCanvas.width;
-    const h = this.gCanvas.height;
-    const cx = w / 2;
-    const cy = h / 2;
-
-    ctx.clearRect(0, 0, w, h);
-
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
-    ctx.lineWidth = 1;
-    [20, 40, 58].forEach(r => {
-      ctx.beginPath();
-      ctx.arc(cx, cy, r, 0, Math.PI * 2);
-      ctx.stroke();
-    });
-
-    ctx.beginPath();
-    ctx.moveTo(cx, 8); ctx.lineTo(cx, h - 8);
-    ctx.moveTo(8, cy); ctx.lineTo(w - 8, cy);
-    ctx.stroke();
-
-    const px = cx + this.gForceX * 24;
-    const py = cy - (this.gForceY - 1.0) * 24;
-
-    ctx.fillStyle = this.currentAct === 2 ? '#ff1a3c' : '#00f0ff';
-    ctx.shadowColor = ctx.fillStyle;
-    ctx.shadowBlur = 10;
-    ctx.beginPath();
-    ctx.arc(px, py, 4, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.strokeStyle = ctx.fillStyle;
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(cx, cy);
-    ctx.lineTo(px, py);
-    ctx.stroke();
-    ctx.shadowBlur = 0;
   }
 
   // ================= RENDER PASSES =================
@@ -501,16 +502,21 @@ class SpaceXFieldSimulator {
     const ctx = this.ctx;
     ctx.clearRect(0, 0, this.width, this.height);
 
-    this.renderCoordinateMesh(ctx);
-    this.renderGeodesicVectors(ctx);
-    this.renderAerospaceNodes(ctx);
+    // 1. Metric space distortion mesh (Minimal, razor thin)
+    this.renderMesh(ctx);
+
+    // 2. Geodesic curved laser lines
+    this.renderEdges(ctx);
+
+    // 3. Five-stage maturity entities
+    this.renderNodes(ctx);
   }
 
-  renderCoordinateMesh(ctx) {
+  renderMesh(ctx) {
     ctx.save();
-    ctx.lineWidth = 0.6;
+    ctx.lineWidth = 0.5;
     const isAct2 = this.currentAct === 2;
-    ctx.strokeStyle = isAct2 ? 'rgba(255, 26, 60, 0.15)' : 'rgba(255, 255, 255, 0.08)';
+    ctx.strokeStyle = isAct2 ? 'rgba(255, 26, 60, 0.12)' : 'rgba(255, 255, 255, 0.05)';
 
     for (let r = 0; r <= this.rows; r++) {
       ctx.beginPath();
@@ -531,19 +537,10 @@ class SpaceXFieldSimulator {
       }
       ctx.stroke();
     }
-
-    ctx.fillStyle = isAct2 ? 'rgba(255, 26, 60, 0.4)' : 'rgba(255, 255, 255, 0.2)';
-    for (let r = 2; r < this.rows; r += 4) {
-      for (let c = 2; c < this.cols; c += 4) {
-        const pt = this.mesh[r * (this.cols + 1) + c];
-        ctx.fillRect(pt.x - 2, pt.y - 0.5, 4, 1);
-        ctx.fillRect(pt.x - 0.5, pt.y - 2, 1, 4);
-      }
-    }
     ctx.restore();
   }
 
-  renderGeodesicVectors(ctx) {
+  renderEdges(ctx) {
     ctx.save();
 
     this.edges.forEach(edge => {
@@ -588,385 +585,272 @@ class SpaceXFieldSimulator {
         ctx.shadowColor = '#ff1a3c';
         ctx.shadowBlur = 10;
       } else if (this.currentAct === 3) {
-        ctx.strokeStyle = 'rgba(0, 240, 255, 0.7)';
-        ctx.lineWidth = 1.4;
-        ctx.shadowColor = '#00f0ff';
-        ctx.shadowBlur = 6;
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+        ctx.lineWidth = 1.2;
+        ctx.shadowBlur = 0;
       } else if (this.currentAct === 4) {
-        ctx.strokeStyle = 'rgba(0, 255, 136, 0.6)';
-        ctx.lineWidth = 1.4;
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+        ctx.lineWidth = 1.0;
         ctx.shadowBlur = 0;
       } else {
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
-        ctx.lineWidth = 1.0;
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+        ctx.lineWidth = 0.8;
         ctx.shadowBlur = 0;
       }
 
       ctx.stroke();
 
+      // Moving packet dot
       const pulseSpeed = edge.isCritical ? 0.03 : 0.015;
       const t = (this.globalTick * pulseSpeed) % 1;
       const qx = (1 - t) * (1 - t) * n1.x + 2 * (1 - t) * t * ctrlX + t * t * n2.x;
       const qy = (1 - t) * (1 - t) * n1.y + 2 * (1 - t) * t * ctrlY + t * t * n2.y;
 
       ctx.beginPath();
-      ctx.arc(qx, qy, edge.isCritical ? 2.8 : 2.0, 0, Math.PI * 2);
+      ctx.arc(qx, qy, edge.isCritical ? 2.5 : 1.8, 0, Math.PI * 2);
       ctx.fillStyle = edge.isCritical ? '#ff1a3c' : '#ffffff';
-      ctx.shadowColor = ctx.fillStyle;
-      ctx.shadowBlur = 6;
       ctx.fill();
     });
 
     ctx.restore();
   }
 
-  renderAerospaceNodes(ctx) {
+  renderNodes(ctx) {
     this.nodes.forEach(node => {
       ctx.save();
       ctx.translate(node.x, node.y);
 
-      if (node.type !== 'seed') {
-        this.drawTargetBrackets(ctx, node);
-      }
-
       switch (node.type) {
         case 'seed':
-          this.drawSeedNode(ctx, node);
+          ctx.fillStyle = '#ffffff';
+          ctx.beginPath();
+          ctx.arc(0, 0, node.radius, 0, Math.PI * 2);
+          ctx.fill();
           break;
-        case 'critical':
-          this.drawCriticalNode(ctx, node);
-          break;
-        case 'split':
-          this.drawSplitNode(ctx, node);
-          break;
-        case 'polyhedron':
-          this.drawPolyhedronNode(ctx, node);
-          break;
-        case 'mature_circle':
-          this.drawMatureCircleNode(ctx, node);
-          break;
-      }
 
-      if (node.label && (this.currentAct !== 2 || node.type === 'critical')) {
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-        ctx.font = '8px "JetBrains Mono", monospace';
-        ctx.fillText(node.label, node.radius + 8, 3);
+        case 'critical':
+          ctx.rotate(node.angle || 0);
+          const r = node.radius * 1.3;
+          const pulse = Math.sin(this.globalTick * 0.25) * 2.5;
+
+          ctx.shadowColor = '#ff1a3c';
+          ctx.shadowBlur = 16;
+          ctx.fillStyle = 'rgba(255, 26, 60, 0.25)';
+          ctx.strokeStyle = '#ff1a3c';
+          ctx.lineWidth = 2;
+
+          ctx.beginPath();
+          ctx.moveTo(r + pulse, 0);
+          ctx.lineTo(-r, -r * 0.7);
+          ctx.lineTo(-r * 0.45, 0);
+          ctx.lineTo(-r, r * 0.7);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.lineTo(r * 0.6, 0);
+          ctx.stroke();
+          break;
+
+        case 'split':
+          ctx.rotate(node.rotation || 0);
+          const sr = node.radius * 1.25;
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.12)';
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 1.8;
+
+          ctx.beginPath();
+          for (let i = 0; i < 3; i++) {
+            const a = (i / 3) * Math.PI * 2 - Math.PI / 2;
+            const x = Math.cos(a) * sr;
+            const y = Math.sin(a) * sr;
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+          }
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+          break;
+
+        case 'polyhedron':
+          ctx.rotate(node.rotation || 0);
+          const pr = node.radius;
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 1.8;
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+
+          ctx.beginPath();
+          for (let i = 0; i < 6; i++) {
+            const a = (i / 6) * Math.PI * 2;
+            const x = Math.cos(a) * pr;
+            const y = Math.sin(a) * pr;
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+          }
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+
+          const innerR = pr * 0.58;
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          for (let i = 0; i < 6; i++) {
+            const a = (i / 6) * Math.PI * 2;
+            const ix = Math.cos(a + Math.PI / 6) * innerR;
+            const iy = Math.sin(a + Math.PI / 6) * innerR;
+            ctx.moveTo(Math.cos(a) * pr, Math.sin(a) * pr);
+            ctx.lineTo(ix, iy);
+          }
+          ctx.stroke();
+          break;
+
+        case 'mature_circle':
+          const mr = node.radius;
+          node.ripples = node.ripples.map(wave => {
+            const next = (wave + 0.007) % 1;
+            const waveR = mr + next * 90;
+            ctx.beginPath();
+            ctx.arc(0, 0, waveR, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(255, 255, 255, ${(1 - next) * 0.4})`;
+            ctx.lineWidth = 1.2;
+            ctx.stroke();
+            return next;
+          });
+
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.arc(0, 0, mr, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.fillStyle = '#ffffff';
+          ctx.beginPath();
+          ctx.arc(0, 0, mr * 0.32, 0, Math.PI * 2);
+          ctx.fill();
+          break;
       }
 
       ctx.restore();
     });
   }
-
-  drawTargetBrackets(ctx, node) {
-    const bSize = node.radius + 12;
-    const arm = 6;
-    ctx.strokeStyle = node.type === 'critical' ? '#ff1a3c' : 'rgba(255, 255, 255, 0.4)';
-    ctx.lineWidth = 1;
-
-    ctx.beginPath();
-    ctx.moveTo(-bSize, -bSize + arm); ctx.lineTo(-bSize, -bSize); ctx.lineTo(-bSize + arm, -bSize);
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.moveTo(bSize - arm, -bSize); ctx.lineTo(bSize, -bSize); ctx.lineTo(bSize, -bSize + arm);
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.moveTo(-bSize, bSize - arm); ctx.lineTo(-bSize, bSize); ctx.lineTo(-bSize + arm, bSize);
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.moveTo(bSize - arm, bSize); ctx.lineTo(bSize, bSize); ctx.lineTo(bSize, bSize - arm);
-    ctx.stroke();
-  }
-
-  drawSeedNode(ctx, node) {
-    ctx.fillStyle = '#00f0ff';
-    ctx.shadowColor = '#00f0ff';
-    ctx.shadowBlur = 8;
-    ctx.beginPath();
-    ctx.arc(0, 0, node.radius, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.arc(0, 0, node.radius * 0.4, 0, Math.PI * 2);
-    ctx.stroke();
-  }
-
-  drawCriticalNode(ctx, node) {
-    ctx.rotate(node.angle || 0);
-    const r = node.radius * 1.3;
-    const pulse = Math.sin(this.globalTick * 0.25) * 2.5;
-
-    ctx.shadowColor = '#ff1a3c';
-    ctx.shadowBlur = 18;
-    ctx.fillStyle = 'rgba(255, 26, 60, 0.25)';
-    ctx.strokeStyle = '#ff1a3c';
-    ctx.lineWidth = 2;
-
-    ctx.beginPath();
-    ctx.moveTo(r + pulse, 0);
-    ctx.lineTo(-r, -r * 0.7);
-    ctx.lineTo(-r * 0.45, 0);
-    ctx.lineTo(-r, r * 0.7);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-
-    ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.lineTo(r * 0.6, 0);
-    ctx.stroke();
-  }
-
-  drawSplitNode(ctx, node) {
-    ctx.rotate(node.rotation || 0);
-    const r = node.radius * 1.25;
-
-    ctx.shadowColor = '#ffb700';
-    ctx.shadowBlur = 12;
-    ctx.fillStyle = 'rgba(255, 183, 0, 0.15)';
-    ctx.strokeStyle = '#ffb700';
-    ctx.lineWidth = 1.8;
-
-    ctx.beginPath();
-    for (let i = 0; i < 3; i++) {
-      const a = (i / 3) * Math.PI * 2 - Math.PI / 2;
-      const x = Math.cos(a) * r;
-      const y = Math.sin(a) * r;
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    }
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-  }
-
-  drawPolyhedronNode(ctx, node) {
-    ctx.rotate(node.rotation || 0);
-    const r = node.radius;
-
-    ctx.shadowColor = '#b347ff';
-    ctx.shadowBlur = 16;
-    ctx.strokeStyle = '#b347ff';
-    ctx.lineWidth = 1.8;
-    ctx.fillStyle = 'rgba(179, 71, 255, 0.12)';
-
-    ctx.beginPath();
-    for (let i = 0; i < 6; i++) {
-      const a = (i / 6) * Math.PI * 2;
-      const x = Math.cos(a) * r;
-      const y = Math.sin(a) * r;
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    }
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-
-    const innerR = r * 0.58;
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    for (let i = 0; i < 6; i++) {
-      const a = (i / 6) * Math.PI * 2;
-      const ix = Math.cos(a + Math.PI / 6) * innerR;
-      const iy = Math.sin(a + Math.PI / 6) * innerR;
-      ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r);
-      ctx.lineTo(ix, iy);
-    }
-    ctx.stroke();
-  }
-
-  drawMatureCircleNode(ctx, node) {
-    const r = node.radius;
-
-    node.ripples = node.ripples.map(wave => {
-      const next = (wave + 0.007) % 1;
-      const waveR = r + next * 90;
-      ctx.beginPath();
-      ctx.arc(0, 0, waveR, 0, Math.PI * 2);
-      ctx.strokeStyle = `rgba(0, 255, 136, ${(1 - next) * 0.5})`;
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-      return next;
-    });
-
-    ctx.shadowColor = '#00ff88';
-    ctx.shadowBlur = 24;
-    ctx.fillStyle = 'rgba(0, 255, 136, 0.22)';
-    ctx.strokeStyle = '#00ff88';
-    ctx.lineWidth = 2.5;
-
-    ctx.beginPath();
-    ctx.arc(0, 0, r, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-
-    ctx.fillStyle = '#ffffff';
-    ctx.beginPath();
-    ctx.arc(0, 0, r * 0.3, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.save();
-    ctx.rotate(this.globalTick * 0.02);
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
-    ctx.lineWidth = 1;
-    ctx.setLineDash([3, 7]);
-    ctx.beginPath();
-    ctx.arc(0, 0, r * 1.45, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.restore();
-  }
 }
 
-// ================= DOWNSLINK REALTIME STREAM CONSOLE =================
-
-class SpaceXConsole {
-  constructor(containerId) {
-    this.container = document.getElementById(containerId);
-    this.queue = [];
-    this.isTyping = false;
-  }
-
-  post(tag, msg, color = 'text-white', packet = null) {
-    this.queue.push({ tag, msg, color, packet });
-    if (!this.isTyping) this.flush();
-  }
-
-  flush() {
-    if (this.queue.length === 0) {
-      this.isTyping = false;
-      return;
-    }
-
-    this.isTyping = true;
-    const item = this.queue.shift();
-    const now = new Date();
-    const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}.${String(Math.floor(now.getMilliseconds() / 10)).padStart(2, '0')}`;
-
-    const entry = document.createElement('div');
-    entry.className = "border-l border-white/20 pl-2 text-[10.5px] font-mono leading-tight";
-
-    const line = document.createElement('div');
-    line.innerHTML = `<span class="text-slate-500">[${time}]</span> <span class="font-bold uppercase ${item.color}">[${item.tag}]</span> <span></span>`;
-    entry.appendChild(line);
-
-    if (item.packet) {
-      const pre = document.createElement('pre');
-      pre.className = "text-[9.5px] text-tele-cyan/85 bg-tele-black p-1.5 rounded border border-white/10 overflow-x-auto my-1";
-      pre.innerText = JSON.stringify(item.packet, null, 2);
-      entry.appendChild(pre);
-    }
-
-    this.container.appendChild(entry);
-    this.container.scrollTop = this.container.scrollHeight;
-
-    const target = line.querySelector('span:last-child');
-    const text = item.msg;
-    let idx = 0;
-
-    const timer = setInterval(() => {
-      if (idx < text.length) {
-        target.textContent += text.charAt(idx++);
-        this.container.scrollTop = this.container.scrollHeight;
-      } else {
-        clearInterval(timer);
-        setTimeout(() => this.flush(), 90);
-      }
-    }, 10);
-  }
-}
-
-// ================= ORCHESTRATION CONTROLLER =================
-
+// ================= 3. MASTER TELEMETRY ORCHESTRATOR =================
 class TelemetryOrchestrator {
   constructor() {
-    this.sim = new SpaceXFieldSimulator();
-    this.console = new SpaceXConsole('terminal-stream');
+    this.graph = new FieldGraphEngine('field-canvas');
+    this.attitude = new AttitudeSphere('gyro-canvas');
 
-    this.console.post("MISSION-INIT", "Field-OS telemetry downlink lock acquired on QPSK transponder.", "text-tele-cyan", {
-      stage: "PRE-LAUNCH",
-      downlink_freq_ghz: 28.5,
-      telemetry_bus: "MIL-STD-1553B"
+    this.valTension = document.getElementById('val-tension');
+    this.valPitch = document.getElementById('val-pitch');
+    this.valCurvature = document.getElementById('val-curvature');
+    this.tickerText = document.getElementById('ticker-text');
+
+    this.currentAct = 1;
+    this.targetTension = 1420;
+    this.curTension = 1420;
+
+    this.targetPitchNum = 0.4;
+    this.curPitchNum = 0.4;
+
+    this.targetAltitude = 12.4;
+    this.curAltitude = 12.4;
+
+    this.setAct(1);
+    this.startLoop();
+  }
+
+  setAct(act) {
+    this.currentAct = act;
+
+    // Button states
+    document.querySelectorAll('.act-btn').forEach((b, i) => {
+      b.classList.toggle('active', i + 1 === act);
     });
 
-    this.console.post("FIDO", "Stage 1 Genesis flight dynamics verified. Grid stabilized.", "text-white");
+    const body = document.body;
 
+    switch (act) {
+      case 1:
+        body.classList.remove('state-crisis');
+        this.graph.buildAct1();
+        this.attitude.setOrientation(0.4, 0);
+        this.targetTension = 1024;
+        this.targetPitchNum = 0.4;
+        this.targetAltitude = 12.4;
+        this.tickerText.innerText = "ACT 01 // GENESIS GROUND STATE NOMINAL";
+        break;
+
+      case 2:
+        // Stunt Peak: Vertical climb 89.4 DEG (Exact match with reference image)
+        body.classList.add('state-crisis');
+        this.graph.buildAct2();
+        this.attitude.setOrientation(89.4, -4);
+        this.targetTension = 3009;
+        this.targetPitchNum = 89.4;
+        this.targetAltitude = 30.2;
+        this.tickerText.innerText = "ACT 02 // CRITICAL STRESS MAX-Q // PITCH 89.4 DEG";
+        break;
+
+      case 3:
+        body.classList.remove('state-crisis');
+        this.graph.buildAct3();
+        this.attitude.setOrientation(32.1, 8);
+        this.targetTension = 2140;
+        this.targetPitchNum = 32.1;
+        this.targetAltitude = 48.6;
+        this.tickerText.innerText = "ACT 03 // GEODESIC VECTOR RE-ROUTING STABILIZED";
+        break;
+
+      case 4:
+        body.classList.remove('state-crisis');
+        this.graph.buildAct4();
+        this.attitude.setOrientation(0.0, 0);
+        this.targetTension = 1450;
+        this.targetPitchNum = 0.0;
+        this.targetAltitude = 82.0;
+        this.tickerText.innerText = "ACT 04 // ORBITAL GRAVITY WELL CAPTURE EQUILIBRIUM";
+        break;
+    }
+  }
+
+  startLoop() {
     const loop = () => {
-      this.sim.update();
-      this.sim.render();
+      // Numerical interpolation for smooth live indicator readout
+      this.curTension += (this.targetTension - this.curTension) * 0.1;
+      this.curPitchNum += (this.targetPitchNum - this.curPitchNum) * 0.1;
+      this.curAltitude += (this.targetAltitude - this.curAltitude) * 0.1;
+
+      // Subtle telemetry jitter
+      const jitter = (Math.random() - 0.5) * 0.08;
+      const displayPitch = (this.curPitchNum + jitter).toFixed(1);
+      const displayAlt = (this.curAltitude + jitter).toFixed(1);
+
+      this.valTension.innerText = Math.round(this.curTension);
+      this.valPitch.innerText = displayPitch;
+      this.valCurvature.innerText = displayAlt;
+
+      this.attitude.update();
+      this.attitude.render(this.currentAct === 2);
+
+      this.graph.update();
+      this.graph.render();
+
       requestAnimationFrame(loop);
     };
     requestAnimationFrame(loop);
   }
-
-  setAct(act) {
-    for (let i = 1; i <= 4; i++) {
-      const btn = document.getElementById(`act-btn-${i}`);
-      if (i === act) {
-        btn.className = "w-full text-left p-2.5 rounded bg-white/10 border-l-4 border-tele-cyan border-white/20 text-white transition-all duration-150 flex flex-col gap-0.5";
-      } else {
-        btn.className = "w-full text-left p-2.5 rounded bg-tele-dark/60 hover:bg-white/5 border-l-4 border-transparent border-white/10 text-slate-300 transition-all duration-150 flex flex-col gap-0.5";
-      }
-    }
-
-    const modeText = document.getElementById('flight-mode-text');
-
-    switch (act) {
-      case 1:
-        this.sim.buildAct1();
-        modeText.innerText = "STAGE 1 // ORBITAL EQUILIBRIUM";
-        modeText.className = "text-tele-cyan font-bold";
-        this.console.post("STAGE-CTRL", "Act 1: Re-established ground state baseline orbit.", "text-tele-cyan", {
-          entropy_level: "NOMINAL",
-          attitude: "LOCKED",
-          active_seeds: this.sim.nodes.length
-        });
-        break;
-
-      case 2:
-        this.sim.buildAct2();
-        modeText.innerText = "MAX-Q // ENTROPY SURGE ANOMALY";
-        modeText.className = "text-tele-red font-bold";
-        this.console.post("ABORT-ALERT", "Act 2 Injected: Severe aerodynamic report entropy spike. CriticalNode shear stress high.", "text-tele-red", {
-          alert_code: "MAX_Q_OVERTENSION",
-          strain_s: "0.94 S",
-          critical_entities: ["CRIT-ABORT-01", "CRIT-ABORT-02"]
-        });
-        break;
-
-      case 3:
-        this.sim.buildAct3();
-        modeText.innerText = "CLOSED-LOOP // GEODESIC VECTORING";
-        modeText.className = "text-tele-amber font-bold";
-        this.console.post("GIMBAL-CORR", "Act 3 Active: Anti-collision repulsion active. Gravitational geodesic trajectory re-routed.", "text-tele-amber", {
-          guidance_algorithm: "BARNES_HUT_REPULSION",
-          kappa_curvature: "0.58 rad",
-          reroute_status: "SUCCESS"
-        });
-        break;
-
-      case 4:
-        this.sim.buildAct4();
-        modeText.innerText = "ORBITAL CAPTURE // SINGULARITY HORIZON";
-        modeText.className = "text-tele-green font-bold";
-        this.console.post("INJECTION", "Act 4 Achieved: Spacecraft successfully captured by MatureCircle Gravity Well.", "text-tele-green", {
-          capture_velocity_kms: 7.82,
-          mass_index: 18.0,
-          loop_condition: "STABLE_CIRCULAR_ORBIT"
-        });
-        break;
-    }
-  }
 }
 
-// Initialize system on window load
-let telemetrySys;
+// Boot application
+let orchestrator;
 window.addEventListener('DOMContentLoaded', () => {
-  telemetrySys = new TelemetryOrchestrator();
+  orchestrator = new TelemetryOrchestrator();
 });
