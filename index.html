@@ -1,0 +1,1227 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Field-OS :: Entanglement Graph System Kickoff</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            cyber: {
+              950: '#030712',
+              900: '#0b1329',
+              800: '#111e38',
+              accent: '#38bdf8',
+              alert: '#f43f5e',
+              warn: '#fbbf24',
+              poly: '#c084fc',
+              mature: '#10b981'
+            }
+          },
+          fontFamily: {
+            mono: ['JetBrains Mono', 'Fira Code', 'Courier New', 'monospace']
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    /* Custom HUD Glassmorphism & Scanlines */
+    .glass-hud {
+      background: rgba(11, 19, 41, 0.78);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(56, 189, 248, 0.22);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.7), inset 0 0 15px rgba(56, 189, 248, 0.04);
+    }
+    .scanline-bg {
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+      background-size: 100% 4px, 6px 100%;
+    }
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+      width: 4px;
+      height: 4px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(3, 7, 18, 0.6);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(56, 189, 248, 0.3);
+      border-radius: 2px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(56, 189, 248, 0.6);
+    }
+  </style>
+</head>
+<body class="bg-cyber-950 text-slate-300 font-mono overflow-hidden h-screen w-screen flex flex-col select-none scanline-bg">
+
+  <!-- TOP HEADER -->
+  <header class="h-14 border-b border-cyber-accent/20 bg-cyber-900/80 backdrop-blur-md px-6 flex items-center justify-between z-20 shrink-0">
+    <div class="flex items-center gap-3">
+      <div class="w-3.5 h-3.5 bg-cyber-accent rounded-sm shadow-[0_0_12px_#38bdf8] animate-pulse"></div>
+      <div class="text-sm font-bold tracking-widest text-slate-100 uppercase">Field-OS <span class="text-xs text-cyber-accent font-normal px-2 py-0.5 rounded border border-cyber-accent/30 bg-cyber-accent/10">v2.4-METAMORPHIC</span></div>
+    </div>
+    <div class="flex items-center gap-6 text-xs">
+      <div class="flex items-center gap-2">
+        <span class="text-slate-400">ENGINE STATE:</span>
+        <span id="header-state" class="text-cyber-accent font-semibold tracking-wider">GENESIS ACTIVE</span>
+      </div>
+      <div class="hidden md:flex items-center gap-2">
+        <span class="text-slate-400">FPS:</span>
+        <span id="header-fps" class="text-cyber-mature font-semibold">60</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN WORKSPACE LAYOUT -->
+  <div class="flex-1 flex overflow-hidden relative">
+
+    <!-- LEFT CONTROL PANEL -->
+    <aside class="w-80 lg:w-96 glass-hud m-3 rounded-lg flex flex-col z-10 shrink-0 p-4 gap-4 overflow-y-auto">
+      <div>
+        <div class="text-xs font-semibold text-cyber-accent tracking-wider uppercase mb-1 flex items-center justify-between">
+          <span>Scenario Orchestration</span>
+          <span class="text-[10px] text-slate-500">ACT 1-4</span>
+        </div>
+        <p class="text-[11px] text-slate-400 mb-3">얽힘장 성숙도 변이 및 시공간 왜곡 시연</p>
+        
+        <div class="space-y-2">
+          <!-- Act 1 -->
+          <button id="btn-act-1" onclick="orchestrator.triggerAct(1)" class="w-full text-left p-2.5 rounded border border-cyber-accent bg-cyber-accent/15 text-slate-100 transition-all duration-200 flex flex-col gap-1 shadow-[0_0_12px_rgba(56,189,248,0.2)]">
+            <div class="flex items-center justify-between text-xs font-bold">
+              <span>ACT 1: 평온한 초기 상태</span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded bg-cyber-accent/20 text-cyber-accent">EQUILIBRIUM</span>
+            </div>
+            <span class="text-[10.5px] text-slate-400 font-normal">SeedNode 중심의 평온한 기저 얽힘장 및 기본 엣지 형성</span>
+          </button>
+
+          <!-- Act 2 -->
+          <button id="btn-act-2" onclick="orchestrator.triggerAct(2)" class="w-full text-left p-2.5 rounded border border-slate-700/60 hover:border-cyber-alert/50 bg-cyber-900/50 text-slate-300 transition-all duration-200 flex flex-col gap-1">
+            <div class="flex items-center justify-between text-xs font-bold">
+              <span>ACT 2: 위기 발생 (데이터 주입)</span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded bg-cyber-alert/20 text-cyber-alert">HIGH ENTROPY</span>
+            </div>
+            <span class="text-[10.5px] text-slate-400 font-normal">결과보고서 급증 ➔ CriticalNode 출현 및 붉은 맥동 왜곡</span>
+          </button>
+
+          <!-- Act 3 -->
+          <button id="btn-act-3" onclick="orchestrator.triggerAct(3)" class="w-full text-left p-2.5 rounded border border-slate-700/60 hover:border-cyber-warn/50 bg-cyber-900/50 text-slate-300 transition-all duration-200 flex flex-col gap-1">
+            <div class="flex items-center justify-between text-xs font-bold">
+              <span>ACT 3: 자가개선 & 측지선 굴절</span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded bg-cyber-warn/20 text-cyber-warn">GEODESIC HEAL</span>
+            </div>
+            <span class="text-[10.5px] text-slate-400 font-normal">척력 필드 전개, 중력 렌즈 우회 곡선(Geodesic) 자동 재설계</span>
+          </button>
+
+          <!-- Act 4 -->
+          <button id="btn-act-4" onclick="orchestrator.triggerAct(4)" class="w-full text-left p-2.5 rounded border border-slate-700/60 hover:border-cyber-mature/50 bg-cyber-900/50 text-slate-300 transition-all duration-200 flex flex-col gap-1">
+            <div class="flex items-center justify-between text-xs font-bold">
+              <span>ACT 4: 최종 수렴 및 안정화</span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded bg-cyber-mature/20 text-cyber-mature">SINGULARITY</span>
+            </div>
+            <span class="text-[10.5px] text-slate-400 font-normal">MatureCircleNode 중심 초중력 우물 수렴 및 닫힌 루프 완성</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Telemetry Real-time Metrics -->
+      <div class="border-t border-slate-800 pt-3">
+        <div class="text-xs font-semibold text-cyber-accent tracking-wider uppercase mb-2">Field Telemetry</div>
+        <div class="space-y-2 text-xs">
+          <div>
+            <div class="flex justify-between text-[11px] mb-1">
+              <span class="text-slate-400">Field Tension (장력)</span>
+              <span id="metric-tension" class="font-bold text-slate-100">0.12 N/m</span>
+            </div>
+            <div class="w-full bg-slate-900 h-1.5 rounded-full overflow-hidden">
+              <div id="bar-tension" class="bg-cyber-accent h-full w-[12%] transition-all duration-300"></div>
+            </div>
+          </div>
+          <div>
+            <div class="flex justify-between text-[11px] mb-1">
+              <span class="text-slate-400">Entropic Strain (스트레인)</span>
+              <span id="metric-entropy" class="font-bold text-cyber-alert">0.05 S</span>
+            </div>
+            <div class="w-full bg-slate-900 h-1.5 rounded-full overflow-hidden">
+              <div id="bar-entropy" class="bg-cyber-alert h-full w-[5%] transition-all duration-300"></div>
+            </div>
+          </div>
+          <div>
+            <div class="flex justify-between text-[11px] mb-1">
+              <span class="text-slate-400">Geodesic Curvature (κ 곡률)</span>
+              <span id="metric-curvature" class="font-bold text-cyber-poly">0.08 rad</span>
+            </div>
+            <div class="w-full bg-slate-900 h-1.5 rounded-full overflow-hidden">
+              <div id="bar-curvature" class="bg-cyber-poly h-full w-[8%] transition-all duration-300"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Node Spectrum Legend -->
+      <div class="border-t border-slate-800 pt-3">
+        <div class="text-xs font-semibold text-cyber-accent tracking-wider uppercase mb-2">5-Stage Maturity Entities</div>
+        <div class="grid grid-cols-1 gap-2 text-[11px]">
+          <div class="flex items-center gap-2.5">
+            <div class="w-4 h-4 rounded-full bg-cyber-accent/20 border border-cyber-accent flex items-center justify-center">
+              <div class="w-1.5 h-1.5 rounded-full bg-cyber-accent"></div>
+            </div>
+            <div>
+              <span class="font-semibold text-slate-200">SeedNode</span>
+              <span class="text-[10px] text-slate-500 block">초기 단초 · 점(Spark) 펄스</span>
+            </div>
+          </div>
+          <div class="flex items-center gap-2.5">
+            <div class="w-4 h-4 rounded bg-cyber-alert/20 border border-cyber-alert flex items-center justify-center text-[10px] text-cyber-alert font-bold">▲</div>
+            <div>
+              <span class="font-semibold text-slate-200">CriticalNode</span>
+              <span class="text-[10px] text-slate-500 block">위기/임계 병목 · 오목-화살표 비대칭</span>
+            </div>
+          </div>
+          <div class="flex items-center gap-2.5">
+            <div class="w-4 h-4 rounded bg-cyber-warn/20 border border-cyber-warn flex items-center justify-center text-[10px] text-cyber-warn font-bold">△</div>
+            <div>
+              <span class="font-semibold text-slate-200">SplitNode</span>
+              <span class="text-[10px] text-slate-500 block">의사결정 트리거 · 정삼각형 분기</span>
+            </div>
+          </div>
+          <div class="flex items-center gap-2.5">
+            <div class="w-4 h-4 rounded bg-cyber-poly/20 border border-cyber-poly flex items-center justify-center text-[11px] text-cyber-poly">◈</div>
+            <div>
+              <span class="font-semibold text-slate-200">PolyhedronNode</span>
+              <span class="text-[10px] text-slate-500 block">고차원 복합 지식 · 회전 다면체</span>
+            </div>
+          </div>
+          <div class="flex items-center gap-2.5">
+            <div class="w-4 h-4 rounded-full bg-cyber-mature/20 border border-cyber-mature flex items-center justify-center">
+              <div class="w-2.5 h-2.5 rounded-full border border-cyber-mature"></div>
+            </div>
+            <div>
+              <span class="font-semibold text-slate-200">MatureCircleNode</span>
+              <span class="text-[10px] text-slate-500 block">마스터 노드 · 초중력 우물 수렴</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- RIGHT MAIN CANVAS & EVENT LOG AREA -->
+    <main class="flex-1 flex flex-col m-3 ml-0 relative overflow-hidden gap-3">
+      
+      <!-- CANVAS VIEWPORT -->
+      <div class="flex-1 glass-hud rounded-lg relative overflow-hidden border border-cyber-accent/20">
+        <canvas id="field-canvas" class="w-full h-full block"></canvas>
+        
+        <!-- Canvas Status Watermark Overlay -->
+        <div class="absolute top-4 right-4 pointer-events-none text-right">
+          <div class="text-[10px] text-slate-500 tracking-wider">GEODESIC FIELD METRIC</div>
+          <div id="canvas-status-badge" class="text-xs font-bold text-cyber-accent uppercase">Act 1 // Ground Grid Synchronized</div>
+        </div>
+      </div>
+
+      <!-- BOTTOM EVENT LOG BOX (Terminal Style with Typist) -->
+      <div class="h-44 glass-hud rounded-lg p-3 flex flex-col border border-cyber-accent/20 shrink-0">
+        <div class="flex items-center justify-between pb-2 mb-1.5 border-b border-slate-800 text-xs">
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-cyber-accent animate-ping"></span>
+            <span class="font-bold text-slate-300 tracking-wider uppercase">Event Stream & Telemetry Packet Log</span>
+          </div>
+          <div class="text-[11px] text-slate-500">JSON Stream Mode :: Auto-Scroll</div>
+        </div>
+        <div id="terminal-container" class="flex-1 overflow-y-auto font-mono text-[11px] space-y-1.5 leading-relaxed text-slate-300">
+          <!-- Realtime Logs Typed Here -->
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- CORE LOGIC JAVASCRIPT -->
+  <script>
+    /**
+     * FIELD-OS CORE GRAPH & GEODESIC ENGINE
+     */
+    class FieldOSSimulator {
+      constructor() {
+        this.canvas = document.getElementById('field-canvas');
+        this.ctx = this.canvas.getContext('2d');
+        
+        this.currentAct = 1;
+        this.globalTick = 0;
+        this.lastTime = performance.now();
+        this.fps = 60;
+        this.fpsTimer = 0;
+
+        // Metric Space Grid (Space-time fabric mesh)
+        this.gridCols = 38;
+        this.gridRows = 24;
+        this.grid = [];
+
+        // Dynamic Graph Elements
+        this.nodes = [];
+        this.edges = [];
+        this.particles = [];
+
+        // Field Metrics
+        this.tension = 0.12;
+        this.entropy = 0.05;
+        this.curvature = 0.08;
+
+        this.resize();
+        this.initGrid();
+        this.buildAct1();
+
+        window.addEventListener('resize', () => {
+          this.resize();
+          this.initGrid();
+        });
+      }
+
+      resize() {
+        const rect = this.canvas.getBoundingClientRect();
+        this.width = rect.width;
+        this.height = rect.height;
+        this.canvas.width = this.width * window.devicePixelRatio;
+        this.canvas.height = this.height * window.devicePixelRatio;
+        this.ctx.resetTransform();
+        this.ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+      }
+
+      initGrid() {
+        this.grid = [];
+        for (let r = 0; r <= this.gridRows; r++) {
+          for (let c = 0; c <= this.gridCols; c++) {
+            const baseX = (this.width / this.gridCols) * c;
+            const baseY = (this.height / this.gridRows) * r;
+            this.grid.push({
+              baseX, baseY,
+              x: baseX, y: baseY,
+              vx: 0, vy: 0
+            });
+          }
+        }
+      }
+
+      // ================= SCENARIO STATES =================
+
+      // Act 1: Genesis - 평온한 초기 상태 (SeedNode 중심)
+      buildAct1() {
+        this.currentAct = 1;
+        this.nodes = [];
+        this.edges = [];
+        const cx = this.width / 2;
+        const cy = this.height / 2;
+
+        const count = 9;
+        for (let i = 0; i < count; i++) {
+          const angle = (i / count) * Math.PI * 2;
+          const dist = 120 + Math.sin(i * 2) * 40;
+          this.nodes.push({
+            id: `seed_${i}`,
+            type: 'seed',
+            x: cx + Math.cos(angle) * dist,
+            y: cy + Math.sin(angle) * dist,
+            targetX: cx + Math.cos(angle) * dist,
+            targetY: cy + Math.sin(angle) * dist,
+            vx: 0, vy: 0,
+            mass: 1.0,
+            radius: 5,
+            glow: '#38bdf8',
+            pulsePhase: i * 0.7
+          });
+        }
+
+        // 평온한 직선/완만한 기본 엣지
+        for (let i = 0; i < count; i++) {
+          this.edges.push({
+            id: `e_${i}`,
+            from: `seed_${i}`,
+            to: `seed_${(i + 1) % count}`,
+            stress: 0.05,
+            strength: 0.3,
+            isCritical: false
+          });
+        }
+      }
+
+      // Act 2: Crisis - 위기 발생 (결과보고서 주입, CriticalNode 출현 및 붉은 맥동 왜곡)
+      buildAct2() {
+        this.currentAct = 2;
+        this.nodes = [];
+        this.edges = [];
+        const cx = this.width / 2;
+        const cy = this.height / 2;
+
+        // 크리티컬 노드 2기 배치 (강력한 음의 곡률 및 전단 응력 유발)
+        this.nodes.push({
+          id: 'crit_alpha',
+          type: 'critical',
+          x: cx - 140, y: cy - 40,
+          targetX: cx - 140, targetY: cy - 40,
+          vx: 0, vy: 0,
+          mass: 8.5,
+          radius: 20,
+          angle: -Math.PI / 4,
+          glow: '#f43f5e',
+          stress: 1.0
+        });
+
+        this.nodes.push({
+          id: 'crit_beta',
+          type: 'critical',
+          x: cx + 150, y: cy + 50,
+          targetX: cx + 150, targetY: cy + 50,
+          vx: 0, vy: 0,
+          mass: 8.0,
+          radius: 20,
+          angle: (3 * Math.PI) / 4,
+          glow: '#f43f5e',
+          stress: 0.95
+        });
+
+        // 3개의 분기점 SplitNode
+        for (let i = 0; i < 3; i++) {
+          const a = (i / 3) * Math.PI * 2 + Math.PI / 6;
+          this.nodes.push({
+            id: `split_${i}`,
+            type: 'split',
+            x: cx + Math.cos(a) * 100,
+            y: cy + Math.sin(a) * 100,
+            targetX: cx + Math.cos(a) * 100,
+            targetY: cy + Math.sin(a) * 100,
+            vx: 0, vy: 0,
+            mass: 4.0,
+            radius: 14,
+            rotation: 0,
+            glow: '#fbbf24'
+          });
+        }
+
+        // 혼돈의 유입 데이터 SeedNodes
+        for (let i = 0; i < 12; i++) {
+          const a = (i / 12) * Math.PI * 2;
+          const dist = 240 + Math.sin(i * 3) * 60;
+          this.nodes.push({
+            id: `chaos_${i}`,
+            type: 'seed',
+            x: cx + Math.cos(a) * dist,
+            y: cy + Math.sin(a) * dist,
+            targetX: cx + Math.cos(a) * dist,
+            targetY: cy + Math.sin(a) * dist,
+            vx: (Math.random() - 0.5) * 3,
+            vy: (Math.random() - 0.5) * 3,
+            mass: 1.4,
+            radius: 4,
+            glow: '#f43f5e',
+            pulsePhase: i
+          });
+        }
+
+        // 극심한 붉은색 맥동 Critical Edge 생성
+        this.edges.push({
+          id: 'crit_link',
+          from: 'crit_alpha',
+          to: 'crit_beta',
+          stress: 1.0,
+          strength: 0.9,
+          isCritical: true
+        });
+
+        this.edges.push({ from: 'crit_alpha', to: 'split_0', stress: 0.8, isCritical: true });
+        this.edges.push({ from: 'crit_beta', to: 'split_1', stress: 0.8, isCritical: true });
+        this.edges.push({ from: 'split_0', to: 'split_2', stress: 0.6, isCritical: false });
+        this.edges.push({ from: 'split_1', to: 'split_2', stress: 0.6, isCritical: false });
+
+        for (let i = 0; i < 12; i++) {
+          this.edges.push({
+            from: `chaos_${i}`,
+            to: i % 2 === 0 ? 'crit_alpha' : 'crit_beta',
+            stress: 0.65,
+            isCritical: true
+          });
+        }
+      }
+
+      // Act 3: Self-Healing & Geodesic Refraction (척력 필드 전개 및 우회 측지선 곡선 굴절)
+      buildAct3() {
+        this.currentAct = 3;
+        this.nodes = [];
+        this.edges = [];
+        const cx = this.width / 2;
+        const cy = this.height / 2;
+
+        // 지식 구조화 단계의 PolyhedronNode 2기
+        this.nodes.push({
+          id: 'poly_left',
+          type: 'polyhedron',
+          x: cx - 160, y: cy,
+          targetX: cx - 160, targetY: cy,
+          vx: 0, vy: 0,
+          mass: 5.5,
+          radius: 22,
+          rotation: 0,
+          glow: '#c084fc'
+        });
+
+        this.nodes.push({
+          id: 'poly_right',
+          type: 'polyhedron',
+          x: cx + 160, y: cy,
+          targetX: cx + 160, targetY: cy,
+          vx: 0, vy: 0,
+          mass: 5.5,
+          radius: 22,
+          rotation: Math.PI / 4,
+          glow: '#c084fc'
+        });
+
+        // 상하 완충 SplitNodes
+        this.nodes.push({
+          id: 'split_top',
+          type: 'split',
+          x: cx, y: cy - 130,
+          targetX: cx, targetY: cy - 130,
+          vx: 0, vy: 0,
+          mass: 3.5,
+          radius: 14,
+          rotation: 0,
+          glow: '#fbbf24'
+        });
+
+        this.nodes.push({
+          id: 'split_bot',
+          type: 'split',
+          x: cx, y: cy + 130,
+          targetX: cx, targetY: cy + 130,
+          vx: 0, vy: 0,
+          mass: 3.5,
+          radius: 14,
+          rotation: Math.PI,
+          glow: '#fbbf24'
+        });
+
+        // 궤도를 안정화하는 위성 SeedNodes
+        for (let i = 0; i < 14; i++) {
+          const a = (i / 14) * Math.PI * 2;
+          this.nodes.push({
+            id: `orb_seed_${i}`,
+            type: 'seed',
+            x: cx + Math.cos(a) * 260,
+            y: cy + Math.sin(a) * 210,
+            targetX: cx + Math.cos(a) * 260,
+            targetY: cy + Math.sin(a) * 210,
+            vx: 0, vy: 0,
+            mass: 1.8,
+            radius: 4.5,
+            glow: '#38bdf8',
+            pulsePhase: i * 0.4
+          });
+        }
+
+        // 중력 렌즈 효과를 반영한 우회 측지선 엣지(Smooth Geodesic Curves)
+        this.edges.push({ from: 'poly_left', to: 'split_top', stress: 0.2, isCritical: false, geodesicWarp: 1.6 });
+        this.edges.push({ from: 'split_top', to: 'poly_right', stress: 0.2, isCritical: false, geodesicWarp: 1.6 });
+        this.edges.push({ from: 'poly_right', to: 'split_bot', stress: 0.2, isCritical: false, geodesicWarp: 1.6 });
+        this.edges.push({ from: 'split_bot', to: 'poly_left', stress: 0.2, isCritical: false, geodesicWarp: 1.6 });
+        this.edges.push({ from: 'poly_left', to: 'poly_right', stress: 0.25, isCritical: false, geodesicWarp: 2.2 });
+
+        for (let i = 0; i < 14; i++) {
+          const target = i < 7 ? 'poly_left' : 'poly_right';
+          this.edges.push({ from: `orb_seed_${i}`, to: target, stress: 0.15, isCritical: false, geodesicWarp: 1.2 });
+        }
+      }
+
+      // Act 4: Convergence - 최종 수렴 및 안정화 (MatureCircleNode 중심 초중력 우물)
+      buildAct4() {
+        this.currentAct = 4;
+        this.nodes = [];
+        this.edges = [];
+        const cx = this.width / 2;
+        const cy = this.height / 2;
+
+        // 중앙 마스터 노드 (MatureCircleNode)
+        this.nodes.push({
+          id: 'mature_master',
+          type: 'mature_circle',
+          x: cx, y: cy,
+          targetX: cx, targetY: cy,
+          vx: 0, vy: 0,
+          mass: 18.0,
+          radius: 36,
+          wellRipples: [0, 0.33, 0.66],
+          glow: '#10b981'
+        });
+
+        // 마스터 노드를 공전하는 3개의 Polyhedron 클러스터
+        for (let i = 0; i < 3; i++) {
+          const a = (i / 3) * Math.PI * 2;
+          this.nodes.push({
+            id: `sat_poly_${i}`,
+            type: 'polyhedron',
+            x: cx + Math.cos(a) * 170,
+            y: cy + Math.sin(a) * 170,
+            targetX: cx + Math.cos(a) * 170,
+            targetY: cy + Math.sin(a) * 170,
+            orbitAngle: a,
+            orbitRadius: 170,
+            orbitSpeed: 0.008,
+            vx: 0, vy: 0,
+            mass: 5.0,
+            radius: 18,
+            rotation: 0,
+            glow: '#c084fc'
+          });
+
+          this.edges.push({ from: 'mature_master', to: `sat_poly_${i}`, stress: 0.05, isCritical: false, geodesicWarp: 1.0 });
+        }
+
+        // 안정화된 원형 궤도를 도는 16개의 SeedNodes
+        for (let i = 0; i < 16; i++) {
+          const a = (i / 16) * Math.PI * 2;
+          this.nodes.push({
+            id: `mature_seed_${i}`,
+            type: 'seed',
+            x: cx + Math.cos(a) * 280,
+            y: cy + Math.sin(a) * 280,
+            targetX: cx + Math.cos(a) * 280,
+            targetY: cy + Math.sin(a) * 280,
+            orbitAngle: a,
+            orbitRadius: 280,
+            orbitSpeed: 0.004 * (i % 2 === 0 ? 1 : -1),
+            vx: 0, vy: 0,
+            mass: 1.5,
+            radius: 4,
+            glow: '#10b981',
+            pulsePhase: i * 0.3
+          });
+
+          this.edges.push({ from: `mature_seed_${i}`, to: `sat_poly_${i % 3}`, stress: 0.02, isCritical: false, geodesicWarp: 0.8 });
+        }
+      }
+
+      // ================= PHYSICS & WARP UPDATE =================
+      update() {
+        this.globalTick++;
+        const cx = this.width / 2;
+        const cy = this.height / 2;
+
+        // 1. 노드 다이내믹스 및 궤도 운동 연산
+        this.nodes.forEach(node => {
+          if (node.orbitAngle !== undefined) {
+            node.orbitAngle += node.orbitSpeed;
+            node.targetX = cx + Math.cos(node.orbitAngle) * node.orbitRadius;
+            node.targetY = cy + Math.sin(node.orbitAngle) * node.orbitRadius;
+          }
+
+          // Anti-Collision 척력 장력 (Barnes-Hut 간이 구현)
+          this.nodes.forEach(other => {
+            if (node.id === other.id) return;
+            const dx = node.x - other.x;
+            const dy = node.y - other.y;
+            const dist = Math.hypot(dx, dy) || 1;
+            const minDist = (node.radius + other.radius) * 2.4;
+
+            if (dist < minDist) {
+              const rep = ((minDist - dist) / minDist) * 1.8;
+              node.vx += (dx / dist) * rep;
+              node.vy += (dy / dist) * rep;
+            }
+          });
+
+          // 복원 완충 이동
+          const ax = (node.targetX - node.x) * 0.08;
+          const ay = (node.targetY - node.y) * 0.08;
+          node.vx = (node.vx + ax) * 0.8;
+          node.vy = (node.vy + ay) * 0.8;
+          node.x += node.vx;
+          node.y += node.vy;
+
+          if (node.rotation !== undefined) {
+            node.rotation += 0.02;
+          }
+        });
+
+        // 2. 얽힘장 시공간 격자 왜곡 (Metric Space Grid Warp)
+        const warpFactor = this.currentAct === 2 ? 2400 : (this.currentAct === 4 ? 3200 : (this.currentAct === 3 ? 1800 : 1200));
+
+        for (let pt of this.grid) {
+          let totalDispX = 0;
+          let totalDispY = 0;
+
+          for (let node of this.nodes) {
+            const dx = node.x - pt.baseX;
+            const dy = node.y - pt.baseY;
+            const distSq = dx * dx + dy * dy + 850;
+            const dist = Math.sqrt(distSq);
+
+            // 중력 우물 인력
+            const pull = (node.mass * warpFactor) / distSq;
+            totalDispX += (dx / dist) * pull;
+            totalDispY += (dy / dist) * pull;
+
+            // Act 2: Critical Node 주변 비대칭 전단 응력(Shear Stress) 왜곡
+            if (node.type === 'critical') {
+              const theta = Math.atan2(dy, dx);
+              const shear = Math.sin(this.globalTick * 0.15) * 14;
+              totalDispX += Math.cos(theta + Math.PI / 2) * (pull * 0.8) + shear * (pull / 20);
+              totalDispY += Math.sin(theta + Math.PI / 2) * (pull * 0.8);
+            }
+          }
+
+          pt.x += (pt.baseX + totalDispX - pt.x) * 0.16;
+          pt.y += (pt.baseY + totalDispY - pt.y) * 0.16;
+        }
+
+        // 3. 텔레메트리 메트릭 갱신
+        if (this.currentAct === 1) {
+          this.tension = 0.12 + Math.sin(this.globalTick * 0.05) * 0.02;
+          this.entropy = 0.05 + Math.cos(this.globalTick * 0.04) * 0.01;
+          this.curvature = 0.08;
+        } else if (this.currentAct === 2) {
+          this.tension = 0.88 + Math.sin(this.globalTick * 0.25) * 0.08;
+          this.entropy = 0.94 + Math.cos(this.globalTick * 0.2) * 0.05;
+          this.curvature = 0.72 + Math.sin(this.globalTick * 0.15) * 0.1;
+        } else if (this.currentAct === 3) {
+          this.tension = 0.42 + Math.sin(this.globalTick * 0.08) * 0.03;
+          this.entropy = 0.24 + Math.cos(this.globalTick * 0.06) * 0.02;
+          this.curvature = 0.55;
+        } else if (this.currentAct === 4) {
+          this.tension = 0.22;
+          this.entropy = 0.02;
+          this.curvature = 0.98; // 완벽한 중력 우물 곡률
+        }
+
+        this.updateHUDMetrics();
+      }
+
+      updateHUDMetrics() {
+        document.getElementById('metric-tension').innerText = `${this.tension.toFixed(2)} N/m`;
+        document.getElementById('bar-tension').style.width = `${Math.min(100, this.tension * 100)}%`;
+
+        document.getElementById('metric-entropy').innerText = `${this.entropy.toFixed(2)} S`;
+        document.getElementById('bar-entropy').style.width = `${Math.min(100, this.entropy * 100)}%`;
+
+        document.getElementById('metric-curvature').innerText = `${this.curvature.toFixed(2)} rad`;
+        document.getElementById('bar-curvature').style.width = `${Math.min(100, this.curvature * 100)}%`;
+
+        // FPS Counter
+        const now = performance.now();
+        this.fpsTimer += now - this.lastTime;
+        if (this.fpsTimer > 500) {
+          this.fps = Math.round(1000 / (now - this.lastTime));
+          document.getElementById('header-fps').innerText = this.fps;
+          this.fpsTimer = 0;
+        }
+        this.lastTime = now;
+      }
+
+      // ================= RENDER PASSES =================
+      render() {
+        const ctx = this.ctx;
+        ctx.clearRect(0, 0, this.width, this.height);
+
+        // Pass 1: 시공간 얽힘장 메쉬 그리드
+        this.renderMetricGrid(ctx);
+
+        // Pass 2: 중력 렌즈 효과를 반영한 측지선(Geodesic Line) & 맥동 엣지
+        this.renderGeodesicEdges(ctx);
+
+        // Pass 3: 5종 성숙도 노드 개체
+        this.renderNodes(ctx);
+      }
+
+      renderMetricGrid(ctx) {
+        ctx.save();
+        ctx.lineWidth = 0.75;
+        const isAct2 = this.currentAct === 2;
+        ctx.strokeStyle = isAct2 ? 'rgba(244, 63, 94, 0.16)' : 'rgba(56, 189, 248, 0.09)';
+
+        // 가로선
+        for (let r = 0; r <= this.gridRows; r++) {
+          ctx.beginPath();
+          for (let c = 0; c <= this.gridCols; c++) {
+            const pt = this.grid[r * (this.gridCols + 1) + c];
+            if (c === 0) ctx.moveTo(pt.x, pt.y);
+            else ctx.lineTo(pt.x, pt.y);
+          }
+          ctx.stroke();
+        }
+
+        // 세로선
+        for (let c = 0; c <= this.gridCols; c++) {
+          ctx.beginPath();
+          for (let r = 0; r <= this.gridRows; r++) {
+            const pt = this.grid[r * (this.gridCols + 1) + c];
+            if (r === 0) ctx.moveTo(pt.x, pt.y);
+            else ctx.lineTo(pt.x, pt.y);
+          }
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      renderGeodesicEdges(ctx) {
+        ctx.save();
+
+        this.edges.forEach(edge => {
+          const n1 = this.nodes.find(n => n.id === edge.from);
+          const n2 = this.nodes.find(n => n.id === edge.to);
+          if (!n1 || !n2) return;
+
+          const midX = (n1.x + n2.x) / 2;
+          const midY = (n1.y + n2.y) / 2;
+
+          // 중력 렌즈 굴절 편향 계산 (주변 노드들의 질량장에 의한 곡률 편차)
+          let biasX = 0;
+          let biasY = 0;
+
+          const warpMult = edge.geodesicWarp || (this.currentAct === 3 ? 1.8 : 0.6);
+
+          this.nodes.forEach(n => {
+            const dx = n.x - midX;
+            const dy = n.y - midY;
+            const d = Math.hypot(dx, dy) || 1;
+            if (d < 360) {
+              const pull = (n.mass * 48 * warpMult) / (d + 25);
+              biasX += (dx / d) * pull;
+              biasY += (dy / d) * pull;
+            }
+          });
+
+          // Act 2인 경우 엣지에 지터(Jitter)와 비선형 맥동 인가
+          if (edge.isCritical) {
+            const jitter = Math.sin(this.globalTick * 0.35 + midX) * 4;
+            biasX += jitter;
+            biasY += jitter;
+          }
+
+          const ctrlX = midX + biasX;
+          const ctrlY = midY + biasY;
+
+          ctx.beginPath();
+          ctx.moveTo(n1.x, n1.y);
+          ctx.quadraticCurveTo(ctrlX, ctrlY, n2.x, n2.y);
+
+          if (edge.isCritical) {
+            // 붉은색 맥동 엣지 (Critical Edge)
+            const pulse = 0.5 + Math.sin(this.globalTick * 0.2) * 0.45;
+            ctx.strokeStyle = `rgba(244, 63, 94, ${pulse})`;
+            ctx.lineWidth = 2.2 + pulse * 1.5;
+            ctx.shadowColor = '#f43f5e';
+            ctx.shadowBlur = 12;
+          } else if (this.currentAct === 3) {
+            // 자가개선 측지선 (부드럽고 유려한 네온 시안/보라 곡선)
+            ctx.strokeStyle = 'rgba(56, 189, 248, 0.55)';
+            ctx.lineWidth = 1.6;
+            ctx.shadowColor = '#38bdf8';
+            ctx.shadowBlur = 8;
+          } else if (this.currentAct === 4) {
+            // 수렴 궤도선
+            ctx.strokeStyle = 'rgba(16, 185, 129, 0.45)';
+            ctx.lineWidth = 1.4;
+            ctx.shadowColor = '#10b981';
+            ctx.shadowBlur = 6;
+          } else {
+            // 평온한 Act 1 기본선
+            ctx.strokeStyle = 'rgba(56, 189, 248, 0.25)';
+            ctx.lineWidth = 1.2;
+            ctx.shadowBlur = 0;
+          }
+
+          ctx.stroke();
+
+          // 엣지 상의 정보 패킷 흐름 입자(Pulse Particle)
+          const pulseSpeed = edge.isCritical ? 0.03 : 0.012;
+          const t = (this.globalTick * pulseSpeed) % 1;
+          const px = (1 - t) * (1 - t) * n1.x + 2 * (1 - t) * t * ctrlX + t * t * n2.x;
+          const py = (1 - t) * (1 - t) * n1.y + 2 * (1 - t) * t * ctrlY + t * t * n2.y;
+
+          ctx.beginPath();
+          ctx.arc(px, py, edge.isCritical ? 3.0 : 2.0, 0, Math.PI * 2);
+          ctx.fillStyle = edge.isCritical ? '#fecdd3' : '#f0f9ff';
+          ctx.shadowColor = edge.isCritical ? '#f43f5e' : '#38bdf8';
+          ctx.shadowBlur = 8;
+          ctx.fill();
+        });
+
+        ctx.restore();
+      }
+
+      renderNodes(ctx) {
+        this.nodes.forEach(node => {
+          ctx.save();
+          ctx.translate(node.x, node.y);
+
+          switch (node.type) {
+            case 'seed':
+              this.drawSeedNode(ctx, node);
+              break;
+            case 'critical':
+              this.drawCriticalNode(ctx, node);
+              break;
+            case 'split':
+              this.drawSplitNode(ctx, node);
+              break;
+            case 'polyhedron':
+              this.drawPolyhedronNode(ctx, node);
+              break;
+            case 'mature_circle':
+              this.drawMatureCircleNode(ctx, node);
+              break;
+          }
+
+          ctx.restore();
+        });
+      }
+
+      // 1. SeedNode: 점(Spark) + 미세 헤일로 펄스
+      drawSeedNode(ctx, node) {
+        const pulse = Math.sin(this.globalTick * 0.08 + node.pulsePhase) * 1.5;
+        ctx.shadowColor = node.glow;
+        ctx.shadowBlur = 12;
+        ctx.fillStyle = node.glow;
+
+        ctx.beginPath();
+        ctx.arc(0, 0, node.radius + pulse, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(0, 0, (node.radius + pulse) * 0.4, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      // 2. CriticalNode: 오목-화살표 비대칭 구조, 붉은색 강렬한 펄스
+      drawCriticalNode(ctx, node) {
+        ctx.rotate(node.angle || 0);
+        const r = node.radius * 1.35;
+        const pulse = Math.sin(this.globalTick * 0.22) * 2.5;
+
+        ctx.shadowColor = '#f43f5e';
+        ctx.shadowBlur = 20;
+        ctx.fillStyle = 'rgba(244, 63, 94, 0.3)';
+        ctx.strokeStyle = '#f43f5e';
+        ctx.lineWidth = 2.2;
+
+        // 비대칭 오목-화살촉
+        ctx.beginPath();
+        ctx.moveTo(r + pulse, 0);
+        ctx.lineTo(-r, -r * 0.75);
+        ctx.lineTo(-r * 0.45, 0); // 오목한 중심 후방
+        ctx.lineTo(-r, r * 0.75);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // 날카로운 코어 발광선
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(r * 0.6, 0);
+        ctx.stroke();
+      }
+
+      // 3. SplitNode: 정삼각형 (분기 트리거)
+      drawSplitNode(ctx, node) {
+        ctx.rotate(node.rotation || 0);
+        const r = node.radius * 1.25;
+
+        ctx.shadowColor = '#fbbf24';
+        ctx.shadowBlur = 14;
+        ctx.fillStyle = 'rgba(251, 191, 36, 0.18)';
+        ctx.strokeStyle = '#fbbf24';
+        ctx.lineWidth = 2.0;
+
+        ctx.beginPath();
+        for (let i = 0; i < 3; i++) {
+          const a = (i / 3) * Math.PI * 2 - Math.PI / 2;
+          const x = Math.cos(a) * r;
+          const y = Math.sin(a) * r;
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // 3-상 꼭짓점 서브 코어
+        for (let i = 0; i < 3; i++) {
+          const a = (i / 3) * Math.PI * 2 - Math.PI / 2;
+          ctx.fillStyle = '#ffffff';
+          ctx.beginPath();
+          ctx.arc(Math.cos(a) * (r * 0.5), Math.sin(a) * (r * 0.5), 2.2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      // 4. PolyhedronNode: 3D 회전 와이어프레임 다면체 + 네온 Glow
+      drawPolyhedronNode(ctx, node) {
+        ctx.rotate(node.rotation || 0);
+        const r = node.radius;
+
+        ctx.shadowColor = '#c084fc';
+        ctx.shadowBlur = 20;
+
+        // 외곽 6각 외골격
+        ctx.strokeStyle = '#c084fc';
+        ctx.lineWidth = 2;
+        ctx.fillStyle = 'rgba(192, 132, 252, 0.15)';
+
+        ctx.beginPath();
+        for (let i = 0; i < 6; i++) {
+          const a = (i / 6) * Math.PI * 2;
+          const x = Math.cos(a) * r;
+          const y = Math.sin(a) * r;
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // 내부 3D 아이소메트릭 큐브 프로젝션 엣지
+        const innerR = r * 0.58;
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        for (let i = 0; i < 6; i++) {
+          const a = (i / 6) * Math.PI * 2;
+          const x = Math.cos(a) * r;
+          const y = Math.sin(a) * r;
+          const ix = Math.cos(a + Math.PI / 6) * innerR;
+          const iy = Math.sin(a + Math.PI / 6) * innerR;
+          ctx.moveTo(x, y);
+          ctx.lineTo(ix, iy);
+        }
+        ctx.stroke();
+      }
+
+      // 5. MatureCircleNode: 마스터 원형 + 다중 동심원 중력 우물(Gravity Well)
+      drawMatureCircleNode(ctx, node) {
+        const r = node.radius;
+
+        // 바깥으로 퍼져나가는 깊은 중력 우물 충격파 링 (Shockwave Horizon Waves)
+        node.wellRipples = node.wellRipples.map(wave => {
+          const next = (wave + 0.007) % 1;
+          const waveR = r + next * 85;
+          ctx.beginPath();
+          ctx.arc(0, 0, waveR, 0, Math.PI * 2);
+          ctx.strokeStyle = `rgba(16, 185, 129, ${(1 - next) * 0.5})`;
+          ctx.lineWidth = 1.8;
+          ctx.stroke();
+          return next;
+        });
+
+        // 초중력 우물 코어 발광
+        ctx.shadowColor = '#10b981';
+        ctx.shadowBlur = 30;
+        ctx.fillStyle = 'rgba(16, 185, 129, 0.28)';
+        ctx.strokeStyle = '#10b981';
+        ctx.lineWidth = 3.0;
+
+        ctx.beginPath();
+        ctx.arc(0, 0, r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        // 중심 핵 (Singularity Core)
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowBlur = 12;
+        ctx.shadowColor = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 0.32, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 궤도 점선 방위각 링
+        ctx.save();
+        ctx.rotate(this.globalTick * 0.025);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+        ctx.lineWidth = 1.2;
+        ctx.setLineDash([4, 6]);
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 1.45, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    // ================= REALTIME TYPING CONSOLE ORCHESTRATOR =================
+    class TerminalLogger {
+      constructor(containerId) {
+        this.container = document.getElementById(containerId);
+        this.queue = [];
+        this.isTyping = false;
+      }
+
+      log(tag, message, colorClass = "text-slate-300", jsonPayload = null) {
+        this.queue.push({ tag, message, colorClass, jsonPayload });
+        if (!this.isTyping) {
+          this.processQueue();
+        }
+      }
+
+      processQueue() {
+        if (this.queue.length === 0) {
+          this.isTyping = false;
+          return;
+        }
+
+        this.isTyping = true;
+        const item = this.queue.shift();
+        const now = new Date();
+        const ts = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}.${String(Math.floor(now.getMilliseconds()/10)).padStart(2,'0')}`;
+
+        const entry = document.createElement('div');
+        entry.className = "flex flex-col gap-0.5 border-l-2 border-slate-700 pl-2";
+
+        const headerLine = document.createElement('div');
+        headerLine.innerHTML = `<span class="text-slate-500">[${ts}]</span> <span class="font-bold uppercase ${item.colorClass}">[${item.tag}]</span> <span></span>`;
+        entry.appendChild(headerLine);
+
+        if (item.jsonPayload) {
+          const jsonPre = document.createElement('pre');
+          jsonPre.className = "text-[10px] text-emerald-400/90 bg-slate-950/70 p-2 rounded border border-slate-800 overflow-x-auto my-1";
+          jsonPre.innerText = JSON.stringify(item.jsonPayload, null, 2);
+          entry.appendChild(jsonPre);
+        }
+
+        this.container.appendChild(entry);
+        this.container.scrollTop = this.container.scrollHeight;
+
+        // 타이핑 효과 (Header message text typing)
+        const textTarget = headerLine.querySelector('span:last-child');
+        const textToType = item.message;
+        let charIdx = 0;
+
+        const typeInterval = setInterval(() => {
+          if (charIdx < textToType.length) {
+            textTarget.textContent += textToType.charAt(charIdx);
+            charIdx++;
+            this.container.scrollTop = this.container.scrollHeight;
+          } else {
+            clearInterval(typeInterval);
+            setTimeout(() => this.processQueue(), 120);
+          }
+        }, 12);
+      }
+    }
+
+    // ================= DEMO CONTROLLER & ACT SYNCHRONIZER =================
+    class DemoOrchestrator {
+      constructor() {
+        this.sim = new FieldOSSimulator();
+        this.logger = new TerminalLogger('terminal-container');
+
+        // 초기 시스템 부팅 로그
+        this.logger.log("KERNEL", "Field-OS Quantum Metric Fabric v2.4 initialized.", "text-cyber-accent", {
+          system_metric: "Riemannian-Manifold",
+          grid_nodes: 38 * 24,
+          field_os_mode: "BOOT_SUCCESS"
+        });
+
+        this.logger.log("TOPOLOGY", "Act 1: Genesis Phase active. Base seed cluster bound.", "text-cyber-accent");
+
+        // 메인 렌더 루프 가동
+        const run = () => {
+          this.sim.update();
+          this.sim.render();
+          requestAnimationFrame(run);
+        };
+        requestAnimationFrame(run);
+      }
+
+      updateUIButtons(act) {
+        for (let i = 1; i <= 4; i++) {
+          const btn = document.getElementById(`btn-act-${i}`);
+          if (i === act) {
+            btn.className = "w-full text-left p-2.5 rounded border border-cyber-accent bg-cyber-accent/15 text-slate-100 transition-all duration-200 flex flex-col gap-1 shadow-[0_0_12px_rgba(56,189,248,0.2)]";
+          } else {
+            btn.className = "w-full text-left p-2.5 rounded border border-slate-700/60 hover:border-slate-500 bg-cyber-900/50 text-slate-300 transition-all duration-200 flex flex-col gap-1";
+          }
+        }
+      }
+
+      triggerAct(act) {
+        this.updateUIButtons(act);
+        const headerState = document.getElementById('header-state');
+        const canvasBadge = document.getElementById('canvas-status-badge');
+
+        switch (act) {
+          case 1:
+            this.sim.buildAct1();
+            headerState.innerText = "GENESIS ACTIVE";
+            headerState.className = "text-cyber-accent font-semibold tracking-wider";
+            canvasBadge.innerText = "Act 1 // Ground Grid Synchronized";
+            canvasBadge.className = "text-xs font-bold text-cyber-accent uppercase";
+
+            this.logger.log("SCENARIO", "Transitioned to Act 1: Genesis Ground State.", "text-cyber-accent", {
+              phase: "ACT_1_GENESIS",
+              active_nodes: this.sim.nodes.length,
+              field_strain: "0.05 S",
+              harmonic_state: "STABLE"
+            });
+            break;
+
+          case 2:
+            this.sim.buildAct2();
+            headerState.innerText = "CRITICAL ENTROPY SURGE";
+            headerState.className = "text-cyber-alert font-semibold tracking-wider";
+            canvasBadge.innerText = "Act 2 // Entropic Anomaly Injected";
+            canvasBadge.className = "text-xs font-bold text-cyber-alert uppercase";
+
+            this.logger.log("ALERT", "Act 2 Triggered: Ingestion of unstructured audit reports causing severe entanglement strain.", "text-cyber-alert", {
+              phase: "ACT_2_CRISIS",
+              critical_nodes: ["crit_alpha", "crit_beta"],
+              shear_stress: "0.94 S",
+              event_pulse: "CRITICAL_RED_PULSE_ACTIVE"
+            });
+            break;
+
+          case 3:
+            this.sim.buildAct3();
+            headerState.innerText = "SELF-HEALING GEODESIC RE-ROUTE";
+            headerState.className = "text-cyber-warn font-semibold tracking-wider";
+            canvasBadge.innerText = "Act 3 // Geodesic Curvature Refracted";
+            canvasBadge.className = "text-xs font-bold text-cyber-warn uppercase";
+
+            this.logger.log("HEAL", "Act 3 Triggered: Anti-collision repulsion field active. Re-routing edges via gravitational geodesic curves.", "text-cyber-warn", {
+              phase: "ACT_3_SELF_HEALING",
+              geodesic_curvature_kappa: "0.55 rad",
+              repulsion_physics: "BARNES_HUT_ACTIVE",
+              polyhedron_synthesis: true
+            });
+            break;
+
+          case 4:
+            this.sim.buildAct4();
+            headerState.innerText = "SINGULARITY CONVERGENCE ACHIEVED";
+            headerState.className = "text-cyber-mature font-semibold tracking-wider";
+            canvasBadge.innerText = "Act 4 // Master Gravity Well Established";
+            canvasBadge.className = "text-xs font-bold text-cyber-mature uppercase";
+
+            this.logger.log("SINGULARITY", "Act 4 Triggered: Complete convergence to MatureCircleNode master horizon.", "text-cyber-mature", {
+              phase: "ACT_4_CONVERGENCE",
+              singularity_core: "mature_master",
+              mass_metric: 18.0,
+              entropy_remaining: "0.02 S",
+              state: "EQUILIBRIUM_CLOSED_LOOP"
+            });
+            break;
+        }
+      }
+    }
+
+    // 시스템 인스턴스 킥오프
+    const orchestrator = new DemoOrchestrator();
+  </script>
+</body>
+</html>
