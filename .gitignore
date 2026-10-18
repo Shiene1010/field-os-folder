@@ -33,5 +33,9 @@ dist/
 build/
 coverage/
 
+# Deployment notes and docs
+github-public-deploy.md
+배포로그.md
+
 # Misc
 *.tmp
