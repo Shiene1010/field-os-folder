@@ -1,23 +1,15 @@
 # Field-OS :: Interactive Sensor Telemetry Engine (`SCRIPT_JS.md`)
 
-## 1. 인터랙션 및 센서 로직 설명
-1. **Ray-cast & Probe Hit-Testing**: 마우스 이벤트(`mousemove`, `click`, `mouseleave`)를 캡처하여 우선순위(노드 > 엣지 > 빈 공간 장력)에 따라 검사합니다.
-2. **Field Potential Equation**: 커서 위치에서의 중력 퍼텐셜과 장력을 계산하여 빈 공간에서도 살아 숨쉬는 필드 수치를 제공합니다.
-3. **자세계 조준(Aim Tracking)**: 노드에 록온되면 3D 구체 내부의 섀시가 해당 노드를 향해 회전하여 정확한 표적 조준 감각을 완성합니다.
-
----
-
-## 2. 소스 코드 (`script.js`)
-
-\`\`\`javascript
+```javascript
 /**
- * FIELD-OS :: INTERACTIVE SENSOR TELEMETRY ENGINE
+ * FIELD-OS :: TESLA EXTREME DEMONSTRATION ENGINE (ORCHESTRATED)
  */
 
 // ================= 1. 3D ATTITUDE GYROSCOPE SPHERE =================
 class AttitudeSphere {
   constructor(canvasId) {
     this.canvas = document.getElementById(canvasId);
+    if (!this.canvas) return;
     this.ctx = this.canvas.getContext('2d');
     this.width = this.canvas.width;
     this.height = this.canvas.height;
@@ -26,7 +18,7 @@ class AttitudeSphere {
     this.targetPitch = 0;
     this.roll = 0;
     this.targetRoll = 0;
-    this.yaw = 0;
+    this.yaw = 0.01;
   }
 
   setOrientation(pitchDeg, rollDeg) {
@@ -41,6 +33,7 @@ class AttitudeSphere {
   }
 
   render(isCrisis, isLocked) {
+    if (!this.ctx) return;
     const ctx = this.ctx;
     const w = this.width;
     const h = this.height;
@@ -69,23 +62,23 @@ class AttitudeSphere {
     ctx.translate(cx, cy);
     ctx.rotate(rollRad);
 
-    const eqHeight = radius * Math.cos(pitchRad);
+    const eqHeight = Math.max(1, Math.abs(radius * Math.cos(pitchRad)));
     ctx.strokeStyle = faintColor;
     ctx.lineWidth = 1.0;
     ctx.beginPath();
-    ctx.ellipse(0, 0, radius, Math.max(1, Math.abs(eqHeight)), 0, 0, Math.PI * 2);
+    ctx.ellipse(0, 0, radius, eqHeight, 0, 0, Math.PI * 2);
     ctx.stroke();
 
-    // Horizon Ticks
     ctx.strokeStyle = strokeColor;
     ctx.beginPath();
     ctx.moveTo(-radius, 0); ctx.lineTo(-radius + 6, 0);
     ctx.moveTo(radius - 6, 0); ctx.lineTo(radius, 0);
     ctx.stroke();
 
-    // 3. Meridian Ring
+    // 3. Meridian Ring (사파리 0 에러 방지)
+    const meridianR = Math.max(1, Math.abs(radius * Math.sin(this.yaw)));
     ctx.beginPath();
-    ctx.ellipse(0, 0, radius * Math.abs(Math.sin(this.yaw)), radius, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, 0, meridianR, radius, 0, 0, Math.PI * 2);
     ctx.stroke();
 
     // 4. Central Vehicle Body
@@ -111,7 +104,6 @@ class AttitudeSphere {
     ctx.fill();
     ctx.stroke();
 
-    // Canopy
     ctx.fillStyle = solidColor;
     ctx.beginPath();
     ctx.moveTo(0, -12);
@@ -121,7 +113,6 @@ class AttitudeSphere {
     ctx.closePath();
     ctx.fill();
 
-    // Wheel Indicators
     ctx.strokeStyle = solidColor;
     ctx.lineWidth = 2.5;
     [-13, 11].forEach(x => {
@@ -136,10 +127,11 @@ class AttitudeSphere {
   }
 }
 
-// ================= 2. FIELD GRAPH & HIT SENSOR ENGINE =================
+// ================= 2. FULLSCREEN FIELD GRAPH ENGINE =================
 class FieldGraphEngine {
   constructor(canvasId) {
     this.canvas = document.getElementById(canvasId);
+    if (!this.canvas) return;
     this.ctx = this.canvas.getContext('2d');
     this.width = window.innerWidth;
     this.height = window.innerHeight;
@@ -153,11 +145,10 @@ class FieldGraphEngine {
     this.nodes = [];
     this.edges = [];
 
-    // Interactive Hover State
     this.mouse = { x: -1000, y: -1000, active: false };
     this.hoveredNode = null;
     this.hoveredEdge = null;
-    this.pinnedTarget = null; // Lock upon click
+    this.pinnedTarget = null;
 
     this.resize();
     this.initMesh();
@@ -166,12 +157,14 @@ class FieldGraphEngine {
   }
 
   resize() {
+    if (!this.canvas) return;
     this.width = window.innerWidth;
     this.height = window.innerHeight;
-    this.canvas.width = this.width * window.devicePixelRatio;
-    this.canvas.height = this.height * window.devicePixelRatio;
+    const dpr = window.devicePixelRatio || 1;
+    this.canvas.width = this.width * dpr;
+    this.canvas.height = this.height * dpr;
     this.ctx.resetTransform();
-    this.ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    this.ctx.scale(dpr, dpr);
   }
 
   initMesh() {
@@ -191,22 +184,24 @@ class FieldGraphEngine {
       this.initMesh();
     });
 
-    this.canvas.addEventListener('mousemove', e => {
+    // 마우스가 상단 버튼이나 하단 HUD 위에 있을 때는 캔버스 프로브를 비활성화
+    window.addEventListener('mousemove', e => {
+      if (e.target.closest('.top-hud') || e.target.closest('.telemetry-cluster')) {
+        this.mouse.active = false;
+        this.hoveredNode = null;
+        this.hoveredEdge = null;
+        return;
+      }
       this.mouse.x = e.clientX;
       this.mouse.y = e.clientY;
       this.mouse.active = true;
       this.evaluateHitTest();
     });
 
-    this.canvas.addEventListener('mouseleave', () => {
-      this.mouse.active = false;
-      if (!this.pinnedTarget) {
-        this.hoveredNode = null;
-        this.hoveredEdge = null;
+    window.addEventListener('click', e => {
+      if (e.target.closest('.top-hud') || e.target.closest('.telemetry-cluster')) {
+        return;
       }
-    });
-
-    this.canvas.addEventListener('click', () => {
       if (this.hoveredNode) {
         this.pinnedTarget = (this.pinnedTarget === this.hoveredNode) ? null : this.hoveredNode;
       } else if (this.hoveredEdge) {
@@ -220,11 +215,10 @@ class FieldGraphEngine {
   evaluateHitTest() {
     if (this.pinnedTarget) return;
 
-    // 1. Node Hit Test (Circle test with padding)
     let foundNode = null;
     for (let node of this.nodes) {
       const d = Math.hypot(node.x - this.mouse.x, node.y - this.mouse.y);
-      if (d <= node.radius + 12) {
+      if (d <= node.radius + 14) {
         foundNode = node;
         break;
       }
@@ -235,7 +229,6 @@ class FieldGraphEngine {
       return;
     }
 
-    // 2. Edge Hit Test (Quadratic Bezier sample points)
     let foundEdge = null;
     for (let edge of this.edges) {
       const n1 = this.nodes.find(n => n.id === edge.from);
@@ -247,12 +240,11 @@ class FieldGraphEngine {
       const ctrlX = midX + (edge.biasX || 0);
       const ctrlY = midY + (edge.biasY || 0);
 
-      // Check 10 points along curve
-      for (let step = 0; step <= 10; step++) {
-        const t = step / 10;
+      for (let step = 0; step <= 8; step++) {
+        const t = step / 8;
         const qx = (1 - t) * (1 - t) * n1.x + 2 * (1 - t) * t * ctrlX + t * t * n2.x;
         const qy = (1 - t) * (1 - t) * n1.y + 2 * (1 - t) * t * ctrlY + t * t * n2.y;
-        if (Math.hypot(qx - this.mouse.x, qy - this.mouse.y) < 10) {
+        if (Math.hypot(qx - this.mouse.x, qy - this.mouse.y) < 14) {
           foundEdge = edge;
           break;
         }
@@ -262,7 +254,6 @@ class FieldGraphEngine {
     this.hoveredEdge = foundEdge;
   }
 
-  // Calculate local tension at any (x, y) coordinate
   getLocalTensorAt(x, y) {
     let totalTension = 0;
     for (let node of this.nodes) {
@@ -274,7 +265,6 @@ class FieldGraphEngine {
     return totalTension;
   }
 
-  // ================= SCENARIOS =================
   buildAct1() {
     this.currentAct = 1;
     this.nodes = [];
@@ -294,10 +284,7 @@ class FieldGraphEngine {
     }
 
     for (let i = 0; i < 12; i++) {
-      this.edges.push({
-        id: `e_${i}`, from: `seed_${i}`, to: `seed_${(i + 1) % 12}`,
-        stress: 0.1, fluxRate: 35
-      });
+      this.edges.push({ id: `e_${i}`, from: `seed_${i}`, to: `seed_${(i + 1) % 12}`, stress: 0.1, fluxRate: 35 });
     }
   }
 
@@ -311,13 +298,13 @@ class FieldGraphEngine {
     this.nodes.push({
       id: 'crit_1', type: 'critical', stage: 2,
       x: cx - 180, y: cy - 60, targetX: cx - 180, targetY: cy - 60,
-      vx: 0, vy: 0, mass: 8.5, radius: 20, angle: -Math.PI / 4, density: 8520
+      vx: 0, vy: 0, mass: 8.5, radius: 22, angle: -Math.PI / 4, density: 8520
     });
 
     this.nodes.push({
       id: 'crit_2', type: 'critical', stage: 2,
       x: cx + 190, y: cy + 70, targetX: cx + 190, targetY: cy + 70,
-      vx: 0, vy: 0, mass: 8.0, radius: 20, angle: (3 * Math.PI) / 4, density: 8040
+      vx: 0, vy: 0, mass: 8.0, radius: 22, angle: (3 * Math.PI) / 4, density: 8040
     });
 
     for (let i = 0; i < 3; i++) {
@@ -326,7 +313,7 @@ class FieldGraphEngine {
         id: `split_${i}`, type: 'split', stage: 3,
         x: cx + Math.cos(a) * 110, y: cy + Math.sin(a) * 110,
         targetX: cx + Math.cos(a) * 110, targetY: cy + Math.sin(a) * 110,
-        vx: 0, vy: 0, mass: 4.2, radius: 14, rotation: 0, density: 4200
+        vx: 0, vy: 0, mass: 4.2, radius: 15, rotation: 0, density: 4200
       });
     }
 
@@ -338,7 +325,7 @@ class FieldGraphEngine {
         x: cx + Math.cos(a) * dist, y: cy + Math.sin(a) * dist,
         targetX: cx + Math.cos(a) * dist, targetY: cy + Math.sin(a) * dist,
         vx: (Math.random() - 0.5) * 4, vy: (Math.random() - 0.5) * 4,
-        mass: 1.5, radius: 3.5, density: 1500
+        mass: 1.5, radius: 4, density: 1500
       });
     }
 
@@ -349,10 +336,7 @@ class FieldGraphEngine {
     this.edges.push({ id: 'ss_1', from: 'split_1', to: 'split_2', stress: 0.6, fluxRate: 50 });
 
     for (let i = 0; i < 14; i++) {
-      this.edges.push({
-        id: `ch_e_${i}`, from: `chaos_${i}`, to: i % 2 === 0 ? 'crit_1' : 'crit_2',
-        stress: 0.75, isCritical: true, fluxRate: 70
-      });
+      this.edges.push({ id: `ch_e_${i}`, from: `chaos_${i}`, to: i % 2 === 0 ? 'crit_1' : 'crit_2', stress: 0.75, isCritical: true, fluxRate: 70 });
     }
   }
 
@@ -363,38 +347,14 @@ class FieldGraphEngine {
     const cx = this.width / 2;
     const cy = this.height / 2;
 
-    this.nodes.push({
-      id: 'poly_left', type: 'polyhedron', stage: 4,
-      x: cx - 180, y: cy, targetX: cx - 180, targetY: cy,
-      vx: 0, vy: 0, mass: 6.0, radius: 22, rotation: 0, density: 6000
-    });
-
-    this.nodes.push({
-      id: 'poly_right', type: 'polyhedron', stage: 4,
-      x: cx + 180, y: cy, targetX: cx + 180, targetY: cy,
-      vx: 0, vy: 0, mass: 6.0, radius: 22, rotation: Math.PI / 4, density: 6000
-    });
-
-    this.nodes.push({
-      id: 'split_top', type: 'split', stage: 3,
-      x: cx, y: cy - 140, targetX: cx, targetY: cy - 140,
-      vx: 0, vy: 0, mass: 3.5, radius: 14, rotation: 0, density: 3500
-    });
-
-    this.nodes.push({
-      id: 'split_bot', type: 'split', stage: 3,
-      x: cx, y: cy + 140, targetX: cx, targetY: cy + 140,
-      vx: 0, vy: 0, mass: 3.5, radius: 14, rotation: Math.PI, density: 3500
-    });
+    this.nodes.push({ id: 'poly_left', type: 'polyhedron', stage: 4, x: cx - 180, y: cy, targetX: cx - 180, targetY: cy, vx: 0, vy: 0, mass: 6.0, radius: 24, rotation: 0, density: 6000 });
+    this.nodes.push({ id: 'poly_right', type: 'polyhedron', stage: 4, x: cx + 180, y: cy, targetX: cx + 180, targetY: cy, vx: 0, vy: 0, mass: 6.0, radius: 24, rotation: Math.PI / 4, density: 6000 });
+    this.nodes.push({ id: 'split_top', type: 'split', stage: 3, x: cx, y: cy - 140, targetX: cx, targetY: cy - 140, vx: 0, vy: 0, mass: 3.5, radius: 15, rotation: 0, density: 3500 });
+    this.nodes.push({ id: 'split_bot', type: 'split', stage: 3, x: cx, y: cy + 140, targetX: cx, targetY: cy + 140, vx: 0, vy: 0, mass: 3.5, radius: 15, rotation: Math.PI, density: 3500 });
 
     for (let i = 0; i < 14; i++) {
       const a = (i / 14) * Math.PI * 2;
-      this.nodes.push({
-        id: `orb_${i}`, type: 'seed', stage: 1,
-        x: cx + Math.cos(a) * 290, y: cy + Math.sin(a) * 230,
-        targetX: cx + Math.cos(a) * 290, targetY: cy + Math.sin(a) * 230,
-        vx: 0, vy: 0, mass: 1.8, radius: 3.5, density: 1800
-      });
+      this.nodes.push({ id: `orb_${i}`, type: 'seed', stage: 1, x: cx + Math.cos(a) * 290, y: cy + Math.sin(a) * 230, targetX: cx + Math.cos(a) * 290, targetY: cy + Math.sin(a) * 230, vx: 0, vy: 0, mass: 1.8, radius: 4, density: 1800 });
     }
 
     this.edges.push({ id: 'e_pt', from: 'poly_left', to: 'split_top', stress: 0.2, geodesicWarp: 1.8, fluxRate: 40 });
@@ -404,10 +364,7 @@ class FieldGraphEngine {
     this.edges.push({ id: 'e_lr', from: 'poly_left', to: 'poly_right', stress: 0.3, geodesicWarp: 2.2, fluxRate: 60 });
 
     for (let i = 0; i < 14; i++) {
-      this.edges.push({
-        id: `orb_e_${i}`, from: `orb_${i}`, to: i < 7 ? 'poly_left' : 'poly_right',
-        stress: 0.15, geodesicWarp: 1.2, fluxRate: 30
-      });
+      this.edges.push({ id: `orb_e_${i}`, from: `orb_${i}`, to: i < 7 ? 'poly_left' : 'poly_right', stress: 0.15, geodesicWarp: 1.2, fluxRate: 30 });
     }
   }
 
@@ -418,33 +375,17 @@ class FieldGraphEngine {
     const cx = this.width / 2;
     const cy = this.height / 2;
 
-    this.nodes.push({
-      id: 'master_core', type: 'mature_circle', stage: 5,
-      x: cx, y: cy, targetX: cx, targetY: cy,
-      vx: 0, vy: 0, mass: 19.0, radius: 40, ripples: [0, 0.33, 0.66], density: 19000
-    });
+    this.nodes.push({ id: 'master_core', type: 'mature_circle', stage: 5, x: cx, y: cy, targetX: cx, targetY: cy, vx: 0, vy: 0, mass: 19.0, radius: 42, ripples: [0, 0.33, 0.66], density: 19000 });
 
     for (let i = 0; i < 3; i++) {
       const a = (i / 3) * Math.PI * 2;
-      this.nodes.push({
-        id: `sat_poly_${i}`, type: 'polyhedron', stage: 4,
-        x: cx + Math.cos(a) * 170, y: cy + Math.sin(a) * 170,
-        targetX: cx + Math.cos(a) * 170, targetY: cy + Math.sin(a) * 170,
-        orbitAngle: a, orbitRadius: 170, orbitSpeed: 0.007,
-        vx: 0, vy: 0, mass: 5.0, radius: 18, rotation: 0, density: 5000
-      });
+      this.nodes.push({ id: `sat_poly_${i}`, type: 'polyhedron', stage: 4, x: cx + Math.cos(a) * 170, y: cy + Math.sin(a) * 170, targetX: cx + Math.cos(a) * 170, targetY: cy + Math.sin(a) * 170, orbitAngle: a, orbitRadius: 170, orbitSpeed: 0.007, vx: 0, vy: 0, mass: 5.0, radius: 18, rotation: 0, density: 5000 });
       this.edges.push({ id: `core_e_${i}`, from: 'master_core', to: `sat_poly_${i}`, stress: 0.05, geodesicWarp: 0.9, fluxRate: 75 });
     }
 
     for (let i = 0; i < 16; i++) {
       const a = (i / 16) * Math.PI * 2;
-      this.nodes.push({
-        id: `star_${i}`, type: 'seed', stage: 1,
-        x: cx + Math.cos(a) * 300, y: cy + Math.sin(a) * 300,
-        targetX: cx + Math.cos(a) * 300, targetY: cy + Math.sin(a) * 300,
-        orbitAngle: a, orbitRadius: 300, orbitSpeed: 0.0035 * (i % 2 === 0 ? 1 : -1),
-        vx: 0, vy: 0, mass: 1.5, radius: 3.5, density: 1500
-      });
+      this.nodes.push({ id: `star_${i}`, type: 'seed', stage: 1, x: cx + Math.cos(a) * 300, y: cy + Math.sin(a) * 300, targetX: cx + Math.cos(a) * 300, targetY: cy + Math.sin(a) * 300, orbitAngle: a, orbitRadius: 300, orbitSpeed: 0.0035 * (i % 2 === 0 ? 1 : -1), vx: 0, vy: 0, mass: 1.5, radius: 3.5, density: 1500 });
       this.edges.push({ id: `orbit_e_${i}`, from: `star_${i}`, to: `sat_poly_${i % 3}`, stress: 0.02, geodesicWarp: 0.7, fluxRate: 20 });
     }
   }
@@ -507,28 +448,14 @@ class FieldGraphEngine {
   }
 
   render() {
+    if (!this.ctx) return;
     const ctx = this.ctx;
     ctx.clearRect(0, 0, this.width, this.height);
 
     // 1. Spacetime Grid
-    this.renderMesh(ctx);
-
-    // 2. Geodesic Edges
-    this.renderEdges(ctx);
-
-    // 3. Nodes
-    this.renderNodes(ctx);
-
-    // 4. Interactive Target Probe Reticle (Cursor Tracking)
-    this.renderProbeReticle(ctx);
-  }
-
-  renderMesh(ctx) {
     ctx.save();
     ctx.lineWidth = 0.5;
-    const isAct2 = this.currentAct === 2;
-    ctx.strokeStyle = isAct2 ? 'rgba(255, 26, 60, 0.12)' : 'rgba(255, 255, 255, 0.05)';
-
+    ctx.strokeStyle = this.currentAct === 2 ? 'rgba(255, 26, 60, 0.15)' : 'rgba(255, 255, 255, 0.06)';
     for (let r = 0; r <= this.rows; r++) {
       ctx.beginPath();
       for (let c = 0; c <= this.cols; c++) {
@@ -548,11 +475,9 @@ class FieldGraphEngine {
       ctx.stroke();
     }
     ctx.restore();
-  }
 
-  renderEdges(ctx) {
+    // 2. Geodesic Edges
     ctx.save();
-
     this.edges.forEach(edge => {
       const n1 = this.nodes.find(n => n.id === edge.from);
       const n2 = this.nodes.find(n => n.id === edge.to);
@@ -586,7 +511,6 @@ class FieldGraphEngine {
 
       const ctrlX = midX + biasX;
       const ctrlY = midY + biasY;
-
       const isHovered = (edge === this.hoveredEdge || edge === this.pinnedTarget);
 
       ctx.beginPath();
@@ -596,26 +520,19 @@ class FieldGraphEngine {
       if (isHovered) {
         ctx.strokeStyle = '#00f0ff';
         ctx.lineWidth = 3.0;
-        ctx.shadowColor = '#00f0ff';
-        ctx.shadowBlur = 12;
       } else if (edge.isCritical) {
         const pulse = 0.5 + Math.sin(this.globalTick * 0.25) * 0.45;
         ctx.strokeStyle = `rgba(255, 26, 60, ${pulse})`;
         ctx.lineWidth = 2.2;
-        ctx.shadowColor = '#ff1a3c';
-        ctx.shadowBlur = 10;
       } else if (this.currentAct === 3) {
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
         ctx.lineWidth = 1.2;
-        ctx.shadowBlur = 0;
       } else {
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
         ctx.lineWidth = 0.8;
-        ctx.shadowBlur = 0;
       }
       ctx.stroke();
 
-      // Moving packet dot
       const pulseSpeed = edge.isCritical ? 0.03 : 0.015;
       const t = (this.globalTick * pulseSpeed) % 1;
       const qx = (1 - t) * (1 - t) * n1.x + 2 * (1 - t) * t * ctrlX + t * t * n2.x;
@@ -626,27 +543,20 @@ class FieldGraphEngine {
       ctx.fillStyle = isHovered ? '#00f0ff' : (edge.isCritical ? '#ff1a3c' : '#ffffff');
       ctx.fill();
     });
-
     ctx.restore();
-  }
 
-  renderNodes(ctx) {
+    // 3. Nodes
     this.nodes.forEach(node => {
       ctx.save();
       ctx.translate(node.x, node.y);
 
       const isTarget = (node === this.hoveredNode || node === this.pinnedTarget);
 
-      // Lock-on Bracket
       if (isTarget) {
         const bSize = node.radius + 14;
         const arm = 6;
         ctx.strokeStyle = '#00f0ff';
         ctx.lineWidth = 1.5;
-        ctx.shadowColor = '#00f0ff';
-        ctx.shadowBlur = 8;
-
-        // 4 Corner Brackets
         ctx.beginPath();
         ctx.moveTo(-bSize, -bSize + arm); ctx.lineTo(-bSize, -bSize); ctx.lineTo(-bSize + arm, -bSize);
         ctx.moveTo(bSize - arm, -bSize); ctx.lineTo(bSize, -bSize); ctx.lineTo(bSize, -bSize + arm);
@@ -668,11 +578,9 @@ class FieldGraphEngine {
           const r = node.radius * 1.3;
           const pulse = Math.sin(this.globalTick * 0.25) * 2.5;
 
-          ctx.shadowColor = isTarget ? '#00f0ff' : '#ff1a3c';
-          ctx.shadowBlur = 16;
           ctx.fillStyle = isTarget ? 'rgba(0, 240, 255, 0.3)' : 'rgba(255, 26, 60, 0.25)';
           ctx.strokeStyle = isTarget ? '#00f0ff' : '#ff1a3c';
-          ctx.lineWidth = 2;
+          ctx.lineWidth = 2.2;
 
           ctx.beginPath();
           ctx.moveTo(r + pulse, 0);
@@ -771,37 +679,30 @@ class FieldGraphEngine {
           ctx.fill();
           break;
       }
-
       ctx.restore();
     });
-  }
 
-  // 4. Ambient Probe Reticle Cursor in Space
-  renderProbeReticle(ctx) {
-    if (!this.mouse.active || this.hoveredNode || this.hoveredEdge) return;
+    // 4. Cursor Probe
+    if (this.mouse.active && !this.hoveredNode && !this.hoveredEdge) {
+      const mx = this.mouse.x;
+      const my = this.mouse.y;
+      const localTension = this.getLocalTensorAt(mx, my);
+      const pulseR = 12 + Math.min(20, localTension * 0.008);
 
-    const mx = this.mouse.x;
-    const my = this.mouse.y;
-    const localTension = this.getLocalTensorAt(mx, my);
-    const pulseR = 12 + Math.min(20, localTension * 0.008);
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+      ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      ctx.moveTo(mx - 8, my); ctx.lineTo(mx + 8, my);
+      ctx.moveTo(mx, my - 8); ctx.lineTo(mx, my + 8);
+      ctx.stroke();
 
-    ctx.save();
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
-    ctx.lineWidth = 0.8;
-
-    // Crosshair
-    ctx.beginPath();
-    ctx.moveTo(mx - 8, my); ctx.lineTo(mx + 8, my);
-    ctx.moveTo(mx, my - 8); ctx.lineTo(mx, my + 8);
-    ctx.stroke();
-
-    // Pulse Tension Ring
-    ctx.beginPath();
-    ctx.arc(mx, my, pulseR, 0, Math.PI * 2);
-    ctx.strokeStyle = 'rgba(0, 240, 255, 0.35)';
-    ctx.stroke();
-
-    ctx.restore();
+      ctx.beginPath();
+      ctx.arc(mx, my, pulseR, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(0, 240, 255, 0.35)';
+      ctx.stroke();
+      ctx.restore();
+    }
   }
 }
 
@@ -811,7 +712,6 @@ class TelemetryOrchestrator {
     this.graph = new FieldGraphEngine('field-canvas');
     this.attitude = new AttitudeSphere('gyro-canvas');
 
-    // DOM Labels & Values
     this.lblPrimary = document.getElementById('lbl-primary');
     this.valPrimary = document.getElementById('val-primary');
     this.unitPrimary = document.getElementById('unit-primary');
@@ -827,21 +727,36 @@ class TelemetryOrchestrator {
     this.tickerText = document.getElementById('ticker-text');
 
     this.currentAct = 1;
-    this.curPrimary = 3009;
-    this.curSecondary = 89.4;
-    this.curTertiary = 30.2;
+    this.curPrimary = 1024;
+    this.curSecondary = 0.4;
+    this.curTertiary = 12.4;
 
-    this.targetPrimary = 3009;
-    this.targetSecondary = 89.4;
-    this.targetTertiary = 30.2;
+    this.targetPrimary = 1024;
+    this.targetSecondary = 0.4;
+    this.targetTertiary = 12.4;
 
+    this.bindButtons();
     this.setAct(1);
     this.startLoop();
   }
 
+  // 상단 버튼에 직접 클릭 이벤트 바인딩 (스코프 에러 원천 차단)
+  bindButtons() {
+    const buttons = document.querySelectorAll('.act-btn');
+    buttons.forEach((btn, idx) => {
+      btn.style.cursor = 'pointer';
+      btn.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.setAct(idx + 1);
+      };
+    });
+  }
+
   setAct(act) {
     this.currentAct = act;
-    document.querySelectorAll('.act-btn').forEach((b, i) => {
+    const buttons = document.querySelectorAll('.act-btn');
+    buttons.forEach((b, i) => {
       b.classList.toggle('active', i + 1 === act);
     });
 
@@ -851,21 +766,40 @@ class TelemetryOrchestrator {
         body.classList.remove('state-crisis');
         this.graph.buildAct1();
         this.attitude.setOrientation(0.4, 0);
+        this.targetPrimary = 1024;
+        this.targetSecondary = 0.4;
+        this.targetTertiary = 12.4;
+        if (this.tickerText) this.tickerText.innerText = "ACT 01 // GENESIS GROUND STATE NOMINAL";
         break;
+
       case 2:
         body.classList.add('state-crisis');
         this.graph.buildAct2();
         this.attitude.setOrientation(89.4, -4);
+        this.targetPrimary = 3009;
+        this.targetSecondary = 89.4;
+        this.targetTertiary = 30.2;
+        if (this.tickerText) this.tickerText.innerText = "ACT 02 // CRITICAL STRESS MAX-Q // PITCH 89.4 DEG";
         break;
+
       case 3:
         body.classList.remove('state-crisis');
         this.graph.buildAct3();
         this.attitude.setOrientation(32.1, 8);
+        this.targetPrimary = 2140;
+        this.targetSecondary = 32.1;
+        this.targetTertiary = 48.6;
+        if (this.tickerText) this.tickerText.innerText = "ACT 03 // GEODESIC VECTOR RE-ROUTING STABILIZED";
         break;
+
       case 4:
         body.classList.remove('state-crisis');
         this.graph.buildAct4();
         this.attitude.setOrientation(0.0, 0);
+        this.targetPrimary = 1450;
+        this.targetSecondary = 0.0;
+        this.targetTertiary = 82.0;
+        if (this.tickerText) this.tickerText.innerText = "ACT 04 // ORBITAL GRAVITY WELL CAPTURE EQUILIBRIUM";
         break;
     }
   }
@@ -876,111 +810,83 @@ class TelemetryOrchestrator {
       const body = document.body;
 
       if (this.graph.hoveredNode || (this.graph.pinnedTarget && this.graph.pinnedTarget.mass)) {
-        // ========== 1. NODE LOCK-ON (밀도 표기) ==========
         const node = this.graph.pinnedTarget || this.graph.hoveredNode;
         body.classList.add('is-locked');
 
-        this.lblPrimary.innerText = "NODE DENSITY";
+        if (this.lblPrimary) this.lblPrimary.innerText = "NODE DENSITY";
         this.targetPrimary = node.density || Math.round(node.mass * 1000);
-        this.unitPrimary.innerText = "RHO";
+        if (this.unitPrimary) this.unitPrimary.innerText = "RHO";
 
-        this.lblSecondary.innerText = "STAGE LEVEL";
+        if (this.lblSecondary) this.lblSecondary.innerText = "STAGE LEVEL";
         this.targetSecondary = node.stage || 1;
-        this.unitSecondary.innerText = "LVL";
+        if (this.unitSecondary) this.unitSecondary.innerText = "LVL";
 
-        this.lblTertiary.innerText = "INFLUENCE";
+        if (this.lblTertiary) this.lblTertiary.innerText = "INFLUENCE";
         this.targetTertiary = Math.round(node.radius * 12);
-        this.unitTertiary.innerText = "PX";
+        if (this.unitTertiary) this.unitTertiary.innerText = "PX";
 
-        this.tickerText.innerText = `[LOCKED TARGET: NODE #${node.id}] DENSITY ${Math.round(this.targetPrimary)} RHO // STAGE ${node.stage}`;
+        if (this.tickerText) this.tickerText.innerText = `[TARGET LOCK: #${node.id}] DENSITY ${Math.round(this.targetPrimary)} RHO // STAGE ${node.stage}`;
 
-        // Rotate Attitude Sphere toward node
         const cx = window.innerWidth / 2;
         const cy = window.innerHeight / 2;
         const angleDeg = (Math.atan2(node.y - cy, node.x - cx) * 180) / Math.PI;
         this.attitude.setOrientation(angleDeg * 0.4, angleDeg * 0.2);
 
       } else if (this.graph.hoveredEdge || (this.graph.pinnedTarget && this.graph.pinnedTarget.fluxRate)) {
-        // ========== 2. EDGE LOCK-ON (장력/플럭스 표기) ==========
         const edge = this.graph.pinnedTarget || this.graph.hoveredEdge;
         body.classList.add('is-locked');
 
-        this.lblPrimary.innerText = "LINK STRESS";
+        if (this.lblPrimary) this.lblPrimary.innerText = "LINK STRESS";
         this.targetPrimary = Math.round(edge.stress * 4200);
-        this.unitPrimary.innerText = "N";
+        if (this.unitPrimary) this.unitPrimary.innerText = "N";
 
-        this.lblSecondary.innerText = "GEODESIC κ";
+        if (this.lblSecondary) this.lblSecondary.innerText = "GEODESIC κ";
         this.targetSecondary = (edge.geodesicWarp || (edge.stress * 1.5)).toFixed(1);
-        this.unitSecondary.innerText = "RAD";
+        if (this.unitSecondary) this.unitSecondary.innerText = "RAD";
 
-        this.lblTertiary.innerText = "FLUX RATE";
+        if (this.lblTertiary) this.lblTertiary.innerText = "FLUX RATE";
         this.targetTertiary = edge.fluxRate || 40;
-        this.unitTertiary.innerText = "MB/S";
+        if (this.unitTertiary) this.unitTertiary.innerText = "MB/S";
 
-        this.tickerText.innerText = `[LOCKED LINK: ${edge.from} -> ${edge.to}] STRESS ${Math.round(this.targetPrimary)} N // FLUX ${edge.fluxRate} MB/S`;
+        if (this.tickerText) this.tickerText.innerText = `[LINK LOCK: ${edge.from} -> ${edge.to}] STRESS ${Math.round(this.targetPrimary)} N // FLUX ${edge.fluxRate} MB/S`;
         this.attitude.setOrientation(15, 45);
 
       } else if (this.graph.mouse.active) {
-        // ========== 3. SPACE HOVER (얽힘장력 실시간 프로브) ==========
         body.classList.remove('is-locked');
         const localTension = this.graph.getLocalTensorAt(this.graph.mouse.x, this.graph.mouse.y);
 
-        this.lblPrimary.innerText = "FIELD TENSION";
+        if (this.lblPrimary) this.lblPrimary.innerText = "FIELD TENSION";
         this.targetPrimary = Math.round(localTension);
-        this.unitPrimary.innerText = "N/M";
+        if (this.unitPrimary) this.unitPrimary.innerText = "N/M";
 
-        this.lblSecondary.innerText = "WARP GRAD";
+        if (this.lblSecondary) this.lblSecondary.innerText = "WARP GRAD";
         this.targetSecondary = Math.min(99.9, (localTension / 45)).toFixed(1);
-        this.unitSecondary.innerText = "%";
+        if (this.unitSecondary) this.unitSecondary.innerText = "%";
 
-        this.lblTertiary.innerText = "POTENTIAL";
+        if (this.lblTertiary) this.lblTertiary.innerText = "POTENTIAL";
         this.targetTertiary = (localTension * 0.0012).toFixed(2);
-        this.unitTertiary.innerText = "G";
+        if (this.unitTertiary) this.unitTertiary.innerText = "G";
 
-        this.tickerText.innerText = `[FIELD PROBE] X: ${Math.round(this.graph.mouse.x)} Y: ${Math.round(this.graph.mouse.y)} // LOCAL TENSION ${Math.round(localTension)} N/M`;
+        if (this.tickerText) this.tickerText.innerText = `[FIELD PROBE] X:${Math.round(this.graph.mouse.x)} Y:${Math.round(this.graph.mouse.y)} // TENSION ${Math.round(localTension)} N/M`;
 
       } else {
-        // ========== 4. SYSTEM IDLE (시나리오 기저 상태) ==========
         body.classList.remove('is-locked');
 
-        this.lblPrimary.innerText = "TENSION";
-        this.unitPrimary.innerText = "KG";
-        this.lblSecondary.innerText = "PITCH";
-        this.unitSecondary.innerText = "DEG";
-        this.lblTertiary.innerText = "ALTITUDE";
-        this.unitTertiary.innerText = "FT";
-
-        if (this.currentAct === 1) {
-          this.targetPrimary = 1024;
-          this.targetSecondary = 0.4;
-          this.targetTertiary = 12.4;
-          this.tickerText.innerText = "ACT 01 // GENESIS GROUND STATE NOMINAL";
-        } else if (this.currentAct === 2) {
-          this.targetPrimary = 3009;
-          this.targetSecondary = 89.4;
-          this.targetTertiary = 30.2;
-          this.tickerText.innerText = "ACT 02 // CRITICAL STRESS MAX-Q // PITCH 89.4 DEG";
-        } else if (this.currentAct === 3) {
-          this.targetPrimary = 2140;
-          this.targetSecondary = 32.1;
-          this.targetTertiary = 48.6;
-          this.tickerText.innerText = "ACT 03 // GEODESIC VECTOR RE-ROUTING STABILIZED";
-        } else if (this.currentAct === 4) {
-          this.targetPrimary = 1450;
-          this.targetSecondary = 0.0;
-          this.targetTertiary = 82.0;
-          this.tickerText.innerText = "ACT 04 // ORBITAL GRAVITY WELL CAPTURE EQUILIBRIUM";
-        }
+        if (this.lblPrimary) this.lblPrimary.innerText = "TENSION";
+        if (this.unitPrimary) this.unitPrimary.innerText = "KG";
+        if (this.lblSecondary) this.lblSecondary.innerText = "PITCH";
+        if (this.unitSecondary) this.unitSecondary.innerText = "DEG";
+        if (this.lblTertiary) this.lblTertiary.innerText = "ALTITUDE";
+        if (this.unitTertiary) this.unitTertiary.innerText = "FT";
       }
 
-      // Smooth Numerical Interpolation
       this.curPrimary += (this.targetPrimary - this.curPrimary) * 0.15;
       this.curSecondary += (this.targetSecondary - this.curSecondary) * 0.15;
       this.curTertiary += (this.targetTertiary - this.curTertiary) * 0.15;
 
-      this.valPrimary.innerText = Math.round(this.curPrimary);
-      this.valSecondary.innerText = Number(this.curSecondary).toFixed(1);
-      this.valTertiary.innerText = Number(this.curTertiary).toFixed(1);
+      if (this.valPrimary) this.valPrimary.innerText = Math.round(this.curPrimary);
+      if (this.valSecondary) this.valSecondary.innerText = Number(this.curSecondary).toFixed(1);
+      if (this.valTertiary) this.valTertiary.innerText = Number(this.curTertiary).toFixed(1);
 
       this.attitude.update();
       this.attitude.render(this.currentAct === 2, Boolean(activeTarget));
@@ -994,8 +900,6 @@ class TelemetryOrchestrator {
   }
 }
 
-let orchestrator;
-window.addEventListener('DOMContentLoaded', () => {
-  orchestrator = new TelemetryOrchestrator();
-});
-\`\`\`
+// 전역 등록 및 즉시 구동
+window.orchestrator = new TelemetryOrchestrator();
+window.setAct = (act) => window.orchestrator.setAct(act);

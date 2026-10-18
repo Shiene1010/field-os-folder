@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FIELD-OS // TESLA TELEMETRY</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+</head>
+<body style="background:#000000; color:#ffffff; margin:0; overflow:hidden;">
+
+  <div id="loader-msg" style="position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); font-family:'JetBrains Mono',monospace; font-size:12px; color:#71717a;">
+    [FIELD-OS] MOUNTING TELEMETRY SPECS...
+  </div>
+
+  <script>
+    (async () => {
+      // 줄바꿈이나 태그에 영향받지 않는 100% 무결점 마크다운 코드 블록 추출기
+      function extractPureCode(text) {
+        if (!text) return '';
+        // 역슬래시가 섞여있다면 표준 백틱으로 정규화
+        const clean = text.replace(/\\```/g, '```');
+        const first = clean.indexOf('```');
+        if (first === -1) return clean;
+        const start = clean.indexOf('\n', first) + 1;
+        const end = clean.lastIndexOf('```');
+        if (end <= start) return clean.slice(start).trim();
+        return clean.substring(start, end).trim();
+      }
+
+      try {
+        // 1. 세 개의 마크다운 파일 읽기
+        const [htmlRes, cssRes, jsRes] = await Promise.all([
+          fetch('INDEX_HTML.md'),
+          fetch('STYLE_CSS.md'),
+          fetch('SCRIPT_JS.md')
+        ]);
+
+        const [htmlMd, cssMd, jsMd] = await Promise.all([
+          htmlRes.text(),
+          cssRes.text(),
+          jsRes.text()
+        ]);
+
+        // 2. CSS 주입 (스타일 복구)
+        const cssCode = extractPureCode(cssMd);
+        const styleTag = document.createElement('style');
+        styleTag.textContent = cssCode;
+        document.head.appendChild(styleTag);
+
+        // 3. HTML 주입 (구조 복구)
+        const htmlCode = extractPureCode(htmlMd);
+        const bodyMatch = htmlCode.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+        document.body.innerHTML = bodyMatch ? bodyMatch[1] : htmlCode;
+
+        // 캔버스 요소가 빠져있으면 자동 보충
+        if (!document.getElementById('field-canvas')) {
+          const cvs = document.createElement('canvas');
+          cvs.id = 'field-canvas';
+          document.body.prepend(cvs);
+        }
+
+        // 4. JS 스크립트 주입 및 엔진 강제 가동
+        const jsCode = extractPureCode(jsMd);
+        const scriptTag = document.createElement('script');
+        // 스크립트 실행 후 즉시 오케스트레이터 가동 보장
+        scriptTag.textContent = jsCode + `
+          \n;if(typeof TelemetryOrchestrator !== "undefined" && !window.orchestrator) {
+            window.orchestrator = new TelemetryOrchestrator();
+          }
+        `;
+        document.body.appendChild(scriptTag);
+
+      } catch (err) {
+        document.body.innerHTML = `
+          <div style="position:fixed; top:40%; left:50%; transform:translate(-50%,-50%); border:1px solid #ff1a3c; background:rgba(255,26,60,0.15); padding:20px; border-radius:6px; font-family:monospace; color:#fff;">
+            <div style="color:#ff1a3c; font-weight:bold; margin-bottom:8px;">[FIELD-OS RUNTIME ERROR]</div>
+            <div style="font-size:12px;">${err.message}</div>
+          </div>
+        `;
+      }
+    })();
+  </script>
+</body>
+</html>
